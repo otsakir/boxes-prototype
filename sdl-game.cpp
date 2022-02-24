@@ -22,13 +22,13 @@ public:
 		out.flush();
 		return *this;
 	}
-
+    
 	LogStream& operator<<(int arg) {
 		out << arg;
 		out.flush();
 		return *this;
 	}
-
+    
 };
 
 LogStream infoLog(std::cout);
@@ -41,7 +41,19 @@ enum ImageId {
     RED_BLOCK = 2,
     
 };
+
+enum BoxId {
+    RED_BOX = 1
+};
     
+struct Configuration {
+    float boxWidth = 64; // default
+    float boxHeight = 64;
+};
+
+
+Configuration configuration;
+
 
 class Resources {
 private:
@@ -121,34 +133,164 @@ public:
 	
 };
 
-/*
- * A box that can be blitted to the screen with position and size
- */
+// something rectangular that can be rendered to the screen
 class Renderable {
 private:
 public:
-	virtual void render() = 0;
-	float x;
-	float y;
-	float width;
-	float height;
+	virtual void render(float x, float y, SDL_Renderer* renderer) = 0;
+	float width = 10;    // size when blitted to the destination 
+	float height = 10;   // ...
 };
 
+// a renderable based on a raster graphic source
 class RenderableBitmap : public Renderable {
 private:
-	SDL_Texture* texture; // does not own texture
+	SDL_Texture* texture = 0; // does not own texture
+    SDL_Rect* sourceRect = 0; // source rectangle within texture. If null the whole texture is assumed. Owned by RenderableBitmap.
 	
 public:
-	virtual void render(SDL_Renderer* renderer) {
+
+    RenderableBitmap(SDL_Texture* texture) :  texture(texture) {}
+    
+    RenderableBitmap(SDL_Texture* texture, SDL_Rect& sourceRect) : RenderableBitmap(texture) {
+        SDL_Rect* prect = new SDL_Rect();
+        *prect = sourceRect;
+        this->sourceRect = prect;
+        // destination rectangle has the same width/height by default
+        width = sourceRect.w;
+        height = sourceRect.h;
+    }
+    
+    ~RenderableBitmap() {
+        if (sourceRect)
+            delete sourceRect;
+    }
+
+	virtual void render(float x, float y, SDL_Renderer* renderer) {
 		SDL_Rect destRect;
 		destRect.x = x;
 		destRect.y = y;
 		destRect.w = width;
 		destRect.h = height;
-		SDL_RenderCopy(renderer, texture, NULL, &destRect);
+		SDL_RenderCopy(renderer, texture, sourceRect, &destRect);
 	}
 };
 
+class Sprite {
+public:
+    Renderable* renderable;
+    float x;
+    float y;
+    
+    Sprite(Renderable* renderable) : renderable(renderable), x(0), y(0) {}
+    
+    void setPos(float x, float y) {
+        // TODO - check limits ?
+        this->x = x;
+        this->y = y;
+    }
+    
+    void render(SDL_Renderer* renderer) {
+        renderable->render(x, y, renderer);
+    }
+};
+
+class BoxSprite : public Sprite {
+public:
+
+    BoxSprite(Renderable* renderable) : Sprite(renderable) {}
+};
+
+
+// knows how to build boxes
+class BoxFactory {
+private:
+    Resources* resources;
+public:
+    BoxFactory(Resources* resources) : resources(resources) {}
+
+    BoxSprite* create(BoxId boxId) {
+        if (boxId == BoxId::RED_BOX) {
+            SDL_Texture* texture = resources->getImage(ImageId::RED_BLOCK);
+            SDL_Rect sourceRect;
+            sourceRect.x = 0;
+            sourceRect.y = 0;
+            sourceRect.w = 64;
+            sourceRect.h = 64;
+            RenderableBitmap* renderable = new RenderableBitmap(texture, sourceRect); // texture mem handled by Resources
+            BoxSprite* boxSprite = new BoxSprite(renderable);
+            return boxSprite;
+        } else {
+            warningLog << "unknown boxId: " << boxId << "\n";
+            return 0;
+        }
+    }
+};
+
+// a rectangular map with colored boxes where boxes move, disappear and all gameplay is implemented
+class BoxMap {
+private:
+    int width; // number of boxes in x
+    int height;  // number of boxes in y
+    
+    Sprite** boxes = 0; // BoxMap owns the sprites
+    
+public:
+
+    BoxMap() {
+        width = 10;
+        height = 10;
+        
+        boxes = new Sprite*[width*height];
+        memset(boxes, 0, width*height*sizeof(boxes[0])); // initialize
+    }
+    
+    ~BoxMap() {
+        if (boxes) {
+            delete [] boxes;
+            boxes = 0;
+        }
+    }
+    
+    void renderBoxes(SDL_Renderer* renderer) {
+        for (int i=0; i < width; i++) {
+            for (int j=0; j<height; j++) {
+                Sprite* sprite = boxes[ width*j + i ];
+                if (sprite) {
+                    sprite->render(renderer);
+                }
+            }
+        }
+    }
+    
+    void putBox(int posX, int posY, Sprite* boxSprite) {
+        // TODO - what if boxSprite == 0
+        if ( boxes[posY*width + posX] ) {
+            warningLog << "BoxMap: there is already a box position (" << posX << "," << posY << ")\n";
+        } else {
+            boxes[posY*width + posX] = boxSprite;
+        }
+    }
+    
+    inline int getWidth() { return width; }
+    
+    inline int getHeight() { return height; }
+    
+};
+
+class OreslikeGame {
+public:
+
+
+    void main() {
+        // 1. ask user to get ready, press something, show "loading..." banner etc.
+        
+        // 2. load level, create and initialize boxmap
+                
+        // 3. gameplay loop - everything is set, keep rolling until game over
+    }
+};
+    
 
 
 // You must include the command line parameters for your main function to be recognized by SDL
@@ -158,6 +300,8 @@ int main(int argc, char** args) {
 	SDL_Window* window = 0;
     SDL_Renderer* renderer = 0;
     Resources* resources = 0;
+    BoxFactory* boxFactory = 0;
+    BoxMap* boxMap = 0;
 
 
 	// Initialize SDL. SDL_Init will return -1 if it fails.
@@ -181,27 +325,17 @@ int main(int argc, char** args) {
     
     resources = new Resources(renderer);
     resources->registerImage("../files/red.png", RED_BLOCK);
+    boxFactory = new BoxFactory(resources);
+    boxMap = new BoxMap();
     
-/*
-	// Get the surface from the window
-	winSurface = SDL_GetWindowSurface(window);
-	if (!winSurface) {
-		cout << "Error getting surface: " << SDL_GetError() << endl;
-		system("pause");
-		// End the program
-		return 1;
-	}
-*/
+    for (int j=0; j < boxMap->getHeight(); j++) {
+        for (int i=0; i< boxMap->getWidth(); i++) {
+            BoxSprite* boxSprite = boxFactory->create(BoxId::RED_BOX);
+            boxSprite->setPos(64.0f*i, 64.0f*j);
+            boxMap->putBox(i,j, boxSprite);
+        }
+    }
 
-  /* Load an additional texture */
-/*
-  SDL_Surface* Loading_Surf;
-  SDL_Texture* BlueShapes;  
-  //Loading_Surf = SDL_LoadBMP("../files/red.bmp");
-  Loading_Surf = IMG_Load("../files/red.png");
-  BlueShapes = SDL_CreateTextureFromSurface(renderer, Loading_Surf);
-  SDL_FreeSurface(Loading_Surf);
-*/
 	SDL_Event ev;
 	bool running = true;
 
@@ -238,8 +372,10 @@ int main(int argc, char** args) {
         destRect.h = 64;
 */
         //Render texture to screen
-        SDL_RenderCopy( renderer, resources->getImage(RED_BLOCK), NULL, NULL );
+        //SDL_RenderCopy( renderer, resources->getImage(RED_BLOCK), NULL, NULL );
         //SDL_RenderCopy( renderer, BlueShapes, NULL, &destRect );
+        
+        boxMap->renderBoxes(renderer);
 
         //Update screen
         SDL_RenderPresent( renderer );
