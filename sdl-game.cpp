@@ -22,14 +22,24 @@ public:
 		out.flush();
 		return *this;
 	}
+
+	LogStream& operator<<(int arg) {
+		out << arg;
+		out.flush();
+		return *this;
+	}
+
 };
 
 LogStream infoLog(std::cout);
 LogStream errorLog(std::cerr);
+LogStream warningLog(std::cerr);
 
 
 enum ImageId {
-    BLOCK1 = 1
+    BLOCK1 = 1,
+    RED_BLOCK = 2,
+    
 };
     
 
@@ -41,7 +51,7 @@ private:
     
 public:
 
-	Resources(const char* rootPath = "", SDL_Renderer* renderer) {
+	Resources(SDL_Renderer* renderer, const char* rootPath = "") {
 		strncpy(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy
 		this->rootPath[MAX_FILEPATH_SIZE-1] = 0; // null-terminate just in case
         this->renderer = renderer;
@@ -83,14 +93,14 @@ public:
             errorLog << "CreateTextureFromSurface failed: " << SDL_GetError() << "\n";
             SDL_FreeSurface(image);
         } else {
-            tex = texture;
+            texture = tex;
             SDL_FreeSurface(image);
         }
 		return true;
 	}
     
     void registerImage(const char* imagefile, const ImageId imageId) {
-        SDL_Texture*& texture;
+        SDL_Texture* texture;
         if (loadImage(imagefile, texture)) {
             if (textures[imageId]) {
                 warningLog << "registerImage: texture already set for " << imageId;
@@ -141,16 +151,14 @@ public:
 
 
 
-
-
 // You must include the command line parameters for your main function to be recognized by SDL
 int main(int argc, char** args) {
+    
+	SDL_Surface* winSurface = 0;
+	SDL_Window* window = 0;
+    SDL_Renderer* renderer = 0;
+    Resources* resources = 0;
 
-	infoLog << "Helo World!";
-
-	// Pointers to our window and surface
-	SDL_Surface* winSurface = NULL;
-	SDL_Window* window = NULL;
 
 	// Initialize SDL. SDL_Init will return -1 if it fails.
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
@@ -160,29 +168,40 @@ int main(int argc, char** args) {
 		return 1;
 	}
 
-	// Create our window
+	// create our window
 	window = SDL_CreateWindow("Example", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_SHOWN);
-
-	// Make sure creating the window succeeded
 	if (!window) {
 		cout << "Error creating window: " << SDL_GetError() << endl;
 		system("pause");
 		// End the program
 		return 1;
 	}
-
+    
+    renderer = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED); // TODO fallback to software rendering, check SDL_RENDERER_PRESENTVSYNC
+    
+    resources = new Resources(renderer);
+    resources->registerImage("../files/red.png", RED_BLOCK);
+    
+/*
 	// Get the surface from the window
 	winSurface = SDL_GetWindowSurface(window);
-
-	// Make sure getting the surface succeeded
 	if (!winSurface) {
 		cout << "Error getting surface: " << SDL_GetError() << endl;
 		system("pause");
 		// End the program
 		return 1;
 	}
+*/
 
-
+  /* Load an additional texture */
+/*
+  SDL_Surface* Loading_Surf;
+  SDL_Texture* BlueShapes;  
+  //Loading_Surf = SDL_LoadBMP("../files/red.bmp");
+  Loading_Surf = IMG_Load("../files/red.png");
+  BlueShapes = SDL_CreateTextureFromSurface(renderer, Loading_Surf);
+  SDL_FreeSurface(Loading_Surf);
+*/
 	SDL_Event ev;
 	bool running = true;
 
@@ -202,23 +221,38 @@ int main(int argc, char** args) {
 		}
 
 		i++;
-		// Fill the window with a white rectangle
-		SDL_FillRect(winSurface, NULL, SDL_MapRGB(winSurface->format, 255, 255, i % 256 ));
-		// Update the window display
-		SDL_UpdateWindowSurface(window);
+		//// Fill the window with a white rectangle
+		//SDL_FillRect(winSurface, NULL, SDL_MapRGB(winSurface->format, 255, 255, i % 256 ));
+		//// Update the window display
+		//SDL_UpdateWindowSurface(window);
+
+        //Clear screen
+         SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+        SDL_RenderClear( renderer );
+
+/*
+        SDL_Rect destRect;
+        destRect.x = 10;
+        destRect.y = 10;
+        destRect.w = 64;
+        destRect.h = 64;
+*/
+        //Render texture to screen
+        SDL_RenderCopy( renderer, resources->getImage(RED_BLOCK), NULL, NULL );
+        //SDL_RenderCopy( renderer, BlueShapes, NULL, &destRect );
+
+        //Update screen
+        SDL_RenderPresent( renderer );
 
 
 
 		// Wait before next frame
-		SDL_Delay(10);
+		SDL_Delay(100);
 	}
 
-	// Destroy the window. This will also destroy the surface
+    // wrap up
+	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
-
-	// Quit SDL
 	SDL_Quit();
-
-	// End the program
 	return 0;
 }
