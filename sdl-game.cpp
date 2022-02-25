@@ -1,51 +1,17 @@
 // sdl-game.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
-#include <iostream>
-#include <SDL.h>
-#include <SDL_image.h>
 
-// You shouldn't really use this statement, but it's fine for small programs
-using namespace std;
-
-#define MAX_FILEPATH_SIZE 128
-#define MAX_RESOURCE_IMAGES 100 // how much slots to allocate for images in the Resources objects
-
-class LogStream {
-private:
-	std::ostream& out;
-public:
-
-	LogStream(std::ostream& out) : out(out) {}
-
-	LogStream& operator<<(const char* arg) {
-		out << arg;
-		out.flush();
-		return *this;
-	}
-    
-	LogStream& operator<<(int arg) {
-		out << arg;
-		out.flush();
-		return *this;
-	}
-    
-};
-
+#include "utils.h"
 LogStream infoLog(std::cout);
 LogStream errorLog(std::cerr);
 LogStream warningLog(std::cerr);
 
+#include "engine.h"
+#include "game.h"
 
-enum ImageId {
-    BLOCK1 = 1,
-    RED_BLOCK = 2,
-    
-};
 
-enum BoxId {
-    RED_BOX = 1
-};
-    
+
+/*    
 struct Configuration {
     float boxWidth = 64; // default
     float boxHeight = 64;
@@ -53,129 +19,10 @@ struct Configuration {
 
 
 Configuration configuration;
+*/
 
 
-class Resources {
-private:
-    char rootPath[MAX_FILEPATH_SIZE];
-    SDL_Renderer* renderer;
-    SDL_Texture* textures[MAX_RESOURCE_IMAGES];
-    
-public:
-
-	Resources(SDL_Renderer* renderer, const char* rootPath = "") {
-		strncpy(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy
-		this->rootPath[MAX_FILEPATH_SIZE-1] = 0; // null-terminate just in case
-        this->renderer = renderer;
-        memset(textures, 0, sizeof(textures));
-	}
-    
-    ~Resources() {
-        for (int i = 0; i < MAX_RESOURCE_IMAGES; i++) {
-            if (textures[i]) {
-                SDL_DestroyTexture(textures[i]);
-                textures[i] = 0;
-            }
-        }
-    }
-	
-
-	bool init() {
-		int flags=IMG_INIT_JPG|IMG_INIT_PNG;
-		int initted=IMG_Init(flags);
-		if((initted&flags) != flags) {
-			errorLog << "error starting image loader " << " : '" << IMG_GetError() << "\n";
-			return false;
-		}
-		return true;	
-	}
-	
-	bool loadImage(const char* imagefile, SDL_Texture*& texture) {
-		
-		// load sample.png into image
-        SDL_Surface *image;
-		image = IMG_Load(imagefile);
-		if (!image) {
-			errorLog << "IMG_Load: " << IMG_GetError() << "\n";
-			return false;
-		}
-                
-		SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, image);
-        if (tex == NULL) {
-            errorLog << "CreateTextureFromSurface failed: " << SDL_GetError() << "\n";
-            SDL_FreeSurface(image);
-        } else {
-            texture = tex;
-            SDL_FreeSurface(image);
-        }
-		return true;
-	}
-    
-    void registerImage(const char* imagefile, const ImageId imageId) {
-        SDL_Texture* texture;
-        if (loadImage(imagefile, texture)) {
-            if (textures[imageId]) {
-                warningLog << "registerImage: texture already set for " << imageId;
-            } else {
-                textures[imageId] = texture;
-            }
-        }
-    }
-    
-    SDL_Texture* getImage(const ImageId imageId) {
-        return textures[imageId];
-    }
-	
-	void done() {
-		IMG_Quit();
-	}
-
-	
-};
-
-// something rectangular that can be rendered to the screen
-class Renderable {
-private:
-public:
-	virtual void render(float x, float y, SDL_Renderer* renderer) = 0;
-	float width = 10;    // size when blitted to the destination 
-	float height = 10;   // ...
-};
-
-// a renderable based on a raster graphic source
-class RenderableBitmap : public Renderable {
-private:
-	SDL_Texture* texture = 0; // does not own texture
-    SDL_Rect* sourceRect = 0; // source rectangle within texture. If null the whole texture is assumed. Owned by RenderableBitmap.
-	
-public:
-
-    RenderableBitmap(SDL_Texture* texture) :  texture(texture) {}
-    
-    RenderableBitmap(SDL_Texture* texture, SDL_Rect& sourceRect) : RenderableBitmap(texture) {
-        SDL_Rect* prect = new SDL_Rect();
-        *prect = sourceRect;
-        this->sourceRect = prect;
-        // destination rectangle has the same width/height by default
-        width = sourceRect.w;
-        height = sourceRect.h;
-    }
-    
-    ~RenderableBitmap() {
-        if (sourceRect)
-            delete sourceRect;
-    }
-
-	virtual void render(float x, float y, SDL_Renderer* renderer) {
-		SDL_Rect destRect;
-		destRect.x = x;
-		destRect.y = y;
-		destRect.w = width;
-		destRect.h = height;
-		SDL_RenderCopy(renderer, texture, sourceRect, &destRect);
-	}
-};
-
+/*
 class Sprite {
 public:
     Renderable* renderable;
@@ -194,6 +41,7 @@ public:
         renderable->render(x, y, renderer);
     }
 };
+*/
 
 class BoxSprite : public Sprite {
 public:
@@ -227,56 +75,8 @@ public:
     }
 };
 
-// a rectangular map with colored boxes where boxes move, disappear and all gameplay is implemented
-class BoxMap {
-private:
-    int width; // number of boxes in x
-    int height;  // number of boxes in y
-    
-    Sprite** boxes = 0; // BoxMap owns the sprites
-    
-public:
 
-    BoxMap() {
-        width = 10;
-        height = 10;
-        
-        boxes = new Sprite*[width*height];
-        memset(boxes, 0, width*height*sizeof(boxes[0])); // initialize
-    }
-    
-    ~BoxMap() {
-        if (boxes) {
-            delete [] boxes;
-            boxes = 0;
-        }
-    }
-    
-    void renderBoxes(SDL_Renderer* renderer) {
-        for (int i=0; i < width; i++) {
-            for (int j=0; j<height; j++) {
-                Sprite* sprite = boxes[ width*j + i ];
-                if (sprite) {
-                    sprite->render(renderer);
-                }
-            }
-        }
-    }
-    
-    void putBox(int posX, int posY, Sprite* boxSprite) {
-        // TODO - what if boxSprite == 0
-        if ( boxes[posY*width + posX] ) {
-            warningLog << "BoxMap: there is already a box position (" << posX << "," << posY << ")\n";
-        } else {
-            boxes[posY*width + posX] = boxSprite;
-        }
-    }
-    
-    inline int getWidth() { return width; }
-    
-    inline int getHeight() { return height; }
-    
-};
+#include "game.h"
 
 class OreslikeGame {
 public:
@@ -306,7 +106,7 @@ int main(int argc, char** args) {
 
 	// Initialize SDL. SDL_Init will return -1 if it fails.
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-		cout << "Error initializing SDL: " << SDL_GetError() << endl;
+		errorLog << "Error initializing SDL: " << SDL_GetError() << "\n";
 		system("pause");
 		// End the program
 		return 1;
@@ -315,7 +115,7 @@ int main(int argc, char** args) {
 	// create our window
 	window = SDL_CreateWindow("Example", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_SHOWN);
 	if (!window) {
-		cout << "Error creating window: " << SDL_GetError() << endl;
+		errorLog << "Error creating window: " << SDL_GetError() << "\n";
 		system("pause");
 		// End the program
 		return 1;
@@ -347,10 +147,21 @@ int main(int argc, char** args) {
 		while (SDL_PollEvent(&ev) != 0) {
 			// check event type
 			switch (ev.type) {
-			case SDL_QUIT:
-				// shut down
-				running = false;
-				break;
+                case SDL_QUIT:
+                    // shut down
+                    running = false;
+                break;
+                case SDL_KEYDOWN:
+                    switch (ev.key.keysym.sym)
+                    {
+                        case SDLK_LEFT:  
+                            infoLog << "left pressed\n";
+                        break;
+                        //case SDLK_RIGHT: x++; break;
+                        //case SDLK_UP:    y--; break;
+                        //case SDLK_DOWN:  y++; break;
+                    }
+                break;
 			}
 		}
 
