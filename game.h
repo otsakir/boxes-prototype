@@ -25,16 +25,9 @@ enum BoxMoveDirection {
 class BoxAnimator;
 class Sprite;
 
-// a rectangular map with colored boxes where boxes move, disappear and all gameplay is implemented
-class BoxMap {
-private:
-    int width; // number of boxes in x
-    int height;  // number of boxes in y
-    
-    Sprite** boxes = 0; // BoxMap owns the sprites
-    
-public:
 
+// a rectangular map with colored boxes where boxes move, disappear and all gameplay is implemented
+struct BoxMap {
     // status of a position in the map. Can be empty, full or invalid
     enum PosStatus {
         PosEmpty,
@@ -42,10 +35,14 @@ public:
         PosInvalid
     };
 
-    BoxMap() {
-        width = 10;
-        height = 10;
-        
+    int width; // number of boxes in x
+    int height;  // number of boxes in y
+    float tileWidth;
+    float tileHeight;
+    
+    Sprite** boxes = 0; // BoxMap owns the sprites
+
+    BoxMap(width, height, tileWidth, tileHeight) : width(width), height(height), tileWidth(tileWidth), tileHeight(tileHeight) {        
         boxes = new Sprite*[width*height];
         memset(boxes, 0, width*height*sizeof(boxes[0])); // initialize
     }
@@ -67,7 +64,6 @@ public:
 };
 
 struct BoxAnimator {
-    BoxMap* boxMap;
     Sprite* sprite;
     float toX;
     float toY;
@@ -80,21 +76,49 @@ struct BoxAnimator {
     int fromMapY;
     int toMapX;
     int toMapY;
-    
-    BoxAnimator(BoxMap* boxMap) : boxMap(boxMap) {}
-    
+        
     // move one step further
     // returns true when done
     bool tick();
+    
+    void set(Sprite* sprite, int fromMapX, int fromMapY, int toMapX, int toMapY) {
+        this->fromMapX = fromMapX;
+        this->fromMapY = fromMapY;
+        this->toMapX = toMapX;
+        this->toMapY = toMapY;
+        
+        this->fromX = sprite->x;
+        this->fromY = sprite->y;
+        this->toX = boxMap.visibleX + gBoxMap->tileWidth*toMapX;
+        this->toY = boxMap.visibleY + 
+    }
 };
 
+class Animations {
+private:
 
-
-
-
-
-
-
+    BoxAnimator* animators;
+    int count; // how many animators
+    
+    Animations(int count = 10) :count(count) {
+        animators = new BoxAnimator[count];
+        memset(animators, 0, sizeof(animators[0])*count);
+    }
+    
+    ~Animations() {
+        delete [] animators;
+    }
+    
+    // go through animation slots and tick each one of them
+    void tick() {
+        for (int i=0; i < count; i++) {
+            if ( ! animators[i].finished ) {
+                animators[i].tick();
+            }
+        }
+    }
+    
+};
 
 
 #endif

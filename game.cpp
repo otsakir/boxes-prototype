@@ -1,8 +1,9 @@
 #include "game.h"
 #include "utils.h"
 
-
-extern LogStream warningLog; // statically linked global var
+// external linkage
+extern LogStream warningLog; 
+extern BoxMap* gBoxMap;
 
 
 void BoxMap::renderBoxes(SDL_Renderer* renderer) {
@@ -56,7 +57,7 @@ bool BoxAnimator::tick() {
         sprite->y = toY;
         steps --;
         finished = true;
-        boxMap->onBoxMoveDone(this);
+        gBoxMap->onBoxMoveDone(this);
         // TODO - trigger animation-done event
     } else {
         float stepX = (toX - sprite->x)/(float)steps;

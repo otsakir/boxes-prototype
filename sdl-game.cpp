@@ -10,6 +10,9 @@ LogStream warningLog(std::cerr);
 #include "game.h"
 
 
+// global stuff (typically prefixed with 'g')
+BoxMap* gBoxMap = 0;
+
 
 /*    
 struct Configuration {
@@ -101,7 +104,7 @@ int main(int argc, char** args) {
     SDL_Renderer* renderer = 0;
     Resources* resources = 0;
     BoxFactory* boxFactory = 0;
-    BoxMap* boxMap = 0;
+
 
 
 	// Initialize SDL. SDL_Init will return -1 if it fails.
@@ -126,13 +129,15 @@ int main(int argc, char** args) {
     resources = new Resources(renderer);
     resources->registerImage("../files/red.png", RED_BLOCK);
     boxFactory = new BoxFactory(resources);
-    boxMap = new BoxMap();
+    gBoxMap = new BoxMap(10, 10, 64.0f, 64.0f);
     
-    for (int j=0; j < boxMap->getHeight(); j++) {
-        for (int i=0; i< boxMap->getWidth(); i++) {
-            BoxSprite* boxSprite = boxFactory->create(BoxId::RED_BOX);
-            boxSprite->setPos(64.0f*i, 64.0f*j);
-            boxMap->putBox(i,j, boxSprite);
+    for (int j=0; j < gBoxMap->getHeight(); j++) {
+        for (int i=0; i< gBoxMap->getWidth(); i++) {
+            if (i != j) {
+                BoxSprite* boxSprite = boxFactory->create(BoxId::RED_BOX);
+                boxSprite->setPos(gBoxMap->tileWidth*i, gBoxMap->tileHeight*j);
+                gBoxMap->putBox(i,j, boxSprite);
+            }
         }
     }
 
@@ -172,7 +177,7 @@ int main(int argc, char** args) {
 		//SDL_UpdateWindowSurface(window);
 
         //Clear screen
-         SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear( renderer );
 
 /*
@@ -186,7 +191,7 @@ int main(int argc, char** args) {
         //SDL_RenderCopy( renderer, resources->getImage(RED_BLOCK), NULL, NULL );
         //SDL_RenderCopy( renderer, BlueShapes, NULL, &destRect );
         
-        boxMap->renderBoxes(renderer);
+        gBoxMap->renderBoxes(renderer);
 
         //Update screen
         SDL_RenderPresent( renderer );
@@ -198,6 +203,8 @@ int main(int argc, char** args) {
 	}
 
     // wrap up
+    if (gBoxMap)
+        delete gBoxMap;
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
