@@ -3,6 +3,9 @@
 
 #include "engine.h"
 
+#define BOX_TILE_WIDTH 64.0
+#define BOX_TILE_HEIGHT 64.0
+
 enum ImageId {
     BLOCK1 = 1,
     RED_BLOCK = 2,
@@ -37,12 +40,10 @@ struct BoxMap {
 
     int width; // number of boxes in x
     int height;  // number of boxes in y
-    float tileWidth;
-    float tileHeight;
     
     Sprite** boxes = 0; // BoxMap owns the sprites
 
-    BoxMap(width, height, tileWidth, tileHeight) : width(width), height(height), tileWidth(tileWidth), tileHeight(tileHeight) {        
+    BoxMap(int width, int height) : width(width), height(height) {        
         boxes = new Sprite*[width*height];
         memset(boxes, 0, width*height*sizeof(boxes[0])); // initialize
     }
@@ -57,52 +58,55 @@ struct BoxMap {
     void renderBoxes(SDL_Renderer* renderer);
     void putBox(int posX, int posY, Sprite* boxSprite);    
     PosStatus boxAt(int posX, int posY, Sprite*& sprite);
-    void onBoxMoveDone(BoxAnimator* boxAnimator);
+    //void onBoxMoveDone(BoxAnimator* boxAnimator);
     inline int getWidth() { return width; }
     inline int getHeight() { return height; }
     
+    Sprite*& at(int tilex, int tiley);
+    
 };
 
-struct BoxAnimator {
-    Sprite* sprite;
-    float toX;
-    float toY;
-    float fromX;
-    float fromY;
-    int steps; // how many steps/frames remaining
-    bool finished = false;
 
-    int fromMapX; // x/y placement in BoxMap
-    int fromMapY;
-    int toMapX;
-    int toMapY;
+struct Level {
+    BoxMap* boxMap;
+    Point2 pos; // top-left corner
+    
+    Level(BoxMap* boxMap) : boxMap(boxMap) {}
+    
+    // returns screen coordinates of the box-tile at tilex,tiley position in the map
+    Point2 posAt(int tilex, int tiley);
+};
+
+
+struct Animator {
+    Sprite* sprite;
+    Point2 toPos;
+    int steps; // how many steps/frames remaining
+    bool finished;
+    
+    Animator() : sprite(0), steps(0), finished(true) {}
         
     // move one step further
     // returns true when done
     bool tick();
     
-    void set(Sprite* sprite, int fromMapX, int fromMapY, int toMapX, int toMapY) {
-        this->fromMapX = fromMapX;
-        this->fromMapY = fromMapY;
-        this->toMapX = toMapX;
-        this->toMapY = toMapY;
-        
-        this->fromX = sprite->x;
-        this->fromY = sprite->y;
-        this->toX = boxMap.visibleX + gBoxMap->tileWidth*toMapX;
-        this->toY = boxMap.visibleY + 
+    void set(Sprite* sprite, Point2 pos, int steps) {
+        this->sprite = sprite;
+        this->toPos = pos;
+        this->steps = steps; // TODO - make this parametric
+        this->finished = false;
     }
+    
 };
 
-class Animations {
-private:
+// a pool for Animators
+struct Animations {
 
-    BoxAnimator* animators;
+    Animator* animators;
     int count; // how many animators
     
     Animations(int count = 10) :count(count) {
-        animators = new BoxAnimator[count];
-        memset(animators, 0, sizeof(animators[0])*count);
+        animators = new Animator[count];
     }
     
     ~Animations() {
@@ -110,13 +114,9 @@ private:
     }
     
     // go through animation slots and tick each one of them
-    void tick() {
-        for (int i=0; i < count; i++) {
-            if ( ! animators[i].finished ) {
-                animators[i].tick();
-            }
-        }
-    }
+    void tick();
+    // return an available animator and mark it as non-finished
+    Animator* getAnimatorSlot();
     
 };
 

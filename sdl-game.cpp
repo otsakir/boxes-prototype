@@ -10,41 +10,12 @@ LogStream warningLog(std::cerr);
 #include "game.h"
 
 
+
 // global stuff (typically prefixed with 'g')
 BoxMap* gBoxMap = 0;
 
 
-/*    
-struct Configuration {
-    float boxWidth = 64; // default
-    float boxHeight = 64;
-};
 
-
-Configuration configuration;
-*/
-
-
-/*
-class Sprite {
-public:
-    Renderable* renderable;
-    float x;
-    float y;
-    
-    Sprite(Renderable* renderable) : renderable(renderable), x(0), y(0) {}
-    
-    void setPos(float x, float y) {
-        // TODO - check limits ?
-        this->x = x;
-        this->y = y;
-    }
-    
-    void render(SDL_Renderer* renderer) {
-        renderable->render(x, y, renderer);
-    }
-};
-*/
 
 class BoxSprite : public Sprite {
 public:
@@ -57,8 +28,10 @@ public:
 class BoxFactory {
 private:
     Resources* resources;
+    BoxMap* boxMap;
+    Level* level;
 public:
-    BoxFactory(Resources* resources) : resources(resources) {}
+    BoxFactory(Resources* resources, BoxMap* boxMap, Level* level) : resources(resources), boxMap(boxMap), level(level) {}
 
     BoxSprite* create(BoxId boxId) {
         if (boxId == BoxId::RED_BOX) {
@@ -76,6 +49,18 @@ public:
             return 0;
         }
     }
+    
+    // "decorate" create() above. Also, place in map
+    BoxSprite* create(BoxId boxId, int mapX, int mapY) {
+        BoxSprite* boxSprite = create(boxId);
+
+        if (boxSprite) {
+            boxSprite->setPos( level->posAt(mapX, mapY) );
+            boxMap->putBox(mapX, mapY, boxSprite);
+        }
+        
+        return boxSprite;
+    }    
 };
 
 
@@ -104,6 +89,7 @@ int main(int argc, char** args) {
     SDL_Renderer* renderer = 0;
     Resources* resources = 0;
     BoxFactory* boxFactory = 0;
+    Level* level = 0;
 
 
 
@@ -128,23 +114,33 @@ int main(int argc, char** args) {
     
     resources = new Resources(renderer);
     resources->registerImage("../files/red.png", RED_BLOCK);
-    boxFactory = new BoxFactory(resources);
-    gBoxMap = new BoxMap(10, 10, 64.0f, 64.0f);
+    gBoxMap = new BoxMap(10, 10);
+    level = new Level(gBoxMap);
+    Animations* animations = new Animations(100);
+    boxFactory = new BoxFactory(resources, gBoxMap, level);
+
+    boxFactory->create(BoxId::RED_BOX, 5,4);
+    boxFactory->create(BoxId::RED_BOX, 6,5);
     
+    /*
     for (int j=0; j < gBoxMap->getHeight(); j++) {
         for (int i=0; i< gBoxMap->getWidth(); i++) {
             if (i != j) {
                 BoxSprite* boxSprite = boxFactory->create(BoxId::RED_BOX);
-                boxSprite->setPos(gBoxMap->tileWidth*i, gBoxMap->tileHeight*j);
+                boxSprite->setPos(BOX_TILE_WIDTH*i, BOX_TILE_HEIGHT*j);
                 gBoxMap->putBox(i,j, boxSprite);
             }
         }
-    }
+    }*/
 
 	SDL_Event ev;
 	bool running = true;
 
-	unsigned int i = 0;
+	//unsigned int i = 0;
+    int playerMapX = 5;
+    int playerMapY = 4;
+    int destMapX;
+    int destMapY;
 	// Main loop
 	while (running) {
 
@@ -157,20 +153,52 @@ int main(int argc, char** args) {
                     running = false;
                 break;
                 case SDL_KEYDOWN:
-                    switch (ev.key.keysym.sym)
-                    {
-                        case SDLK_LEFT:  
-                            infoLog << "left pressed\n";
-                        break;
-                        //case SDLK_RIGHT: x++; break;
-                        //case SDLK_UP:    y--; break;
-                        //case SDLK_DOWN:  y++; break;
+                    if (ev.key.keysym.sym == SDLK_LEFT || ev.key.keysym.sym == SDLK_RIGHT || ev.key.keysym.sym == SDLK_UP || ev.key.keysym.sym == SDLK_DOWN) {
+                        destMapX = playerMapX;
+                        destMapY = playerMapY;
+                        switch (ev.key.keysym.sym)
+                        {
+                            case SDLK_LEFT:  
+                                destMapX = playerMapX-1;
+                                break;
+                            case SDLK_RIGHT:
+                                destMapX = playerMapX+1;
+                                break;
+                            case SDLK_UP:
+                                destMapY = playerMapY-1;
+                                break;
+                            case SDLK_DOWN:
+                                destMapY = playerMapY+1;
+                                break;
+                        }
+
+                        // keep referenences of source and dest positions in map
+                        Sprite*& srcMapPos = gBoxMap->at(playerMapX,playerMapY);
+                        Sprite*& destMapPos = gBoxMap->at(destMapX, destMapY);
+                        Sprite* movedSprite = srcMapPos; // keep a copy of the sprite too build the animation
+                        // move the sprite in BoxMap 
+                        if (destMapPos == 0) { // empty ?
+                            infoLog << "Moving the sprite...\n";
+                            
+                            destMapPos = srcMapPos;
+                            srcMapPos = 0; // clear source position
+                            // setup animation
+                            Animator* animator = animations->getAnimatorSlot();
+                            Point2 targetPos = level->posAt(destMapX,destMapY);
+                            animator->set(movedSprite, targetPos,30);
+                            
+                            playerMapX = destMapX;
+                            playerMapY = destMapY;
+                        }
                     }
                 break;
 			}
 		}
+        
+        // animate
+        animations->tick();
+        
 
-		i++;
 		//// Fill the window with a white rectangle
 		//SDL_FillRect(winSurface, NULL, SDL_MapRGB(winSurface->format, 255, 255, i % 256 ));
 		//// Update the window display
@@ -199,9 +227,11 @@ int main(int argc, char** args) {
 
 
 		// Wait before next frame
-		SDL_Delay(100);
+		SDL_Delay(14);
 	}
 
+    if (level)
+        delete level;
     // wrap up
     if (gBoxMap)
         delete gBoxMap;

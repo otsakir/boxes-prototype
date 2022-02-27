@@ -102,11 +102,11 @@ void RenderableBitmap::render(float x, float y, SDL_Renderer* renderer) {
 
 void Sprite::setPos(float x, float y) {
     // TODO - check limits ?
-    this->x = x;
-    this->y = y;
+    pos.x = x;
+    pos.y = y;
 }
 
 void Sprite::render(SDL_Renderer* renderer) {
-    renderable->render(x, y, renderer);
+    renderable->render(pos.x, pos.y, renderer);
 }
 

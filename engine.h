@@ -8,6 +8,14 @@
 #include <SDL.h>
 
 
+struct Point2 {
+    float x;
+    float y;
+    
+    Point2() : x(0), y(0) {}
+    Point2(float x, float y) : x(x), y(y) {}
+};
+
 class Resources {
 private:
     char rootPath[MAX_FILEPATH_SIZE];
@@ -58,12 +66,14 @@ public:
 class Sprite {
 public:
     Renderable* renderable;
-    float x;
-    float y;
+    Point2 pos;
     
-    Sprite(Renderable* renderable) : renderable(renderable), x(0), y(0) {}
+    Sprite(Renderable* renderable) : renderable(renderable) {}
     
     void setPos(float x, float y);
+    void setPos(const Point2& pos) {
+        this->pos = pos;
+    }
     void render(SDL_Renderer* renderer);
     
 };

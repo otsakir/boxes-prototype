@@ -3,6 +3,8 @@
 
 // external linkage
 extern LogStream warningLog; 
+extern LogStream errorLog;
+extern LogStream infoLog;
 extern BoxMap* gBoxMap;
 
 
@@ -39,33 +41,69 @@ BoxMap::PosStatus BoxMap::boxAt(int posX, int posY, Sprite*& sprite) {
     return PosInvalid;
 }
 
+// returns a reference to the box item at position (tilex,tiley) 
+Sprite*& BoxMap::at(int tilex, int tiley) {
+    return boxes[width*tiley+tilex];
+}
+
+/*
 void BoxMap::onBoxMoveDone(BoxAnimator* boxAnimator) {
     boxes[boxAnimator->toMapY*width + boxAnimator->toMapX] = boxes[boxAnimator->fromMapY*width + boxAnimator->fromMapX];
     boxes[boxAnimator->fromMapY*width + boxAnimator->fromMapX] = 0;
 }
+* */
 
+
+Point2 Level::posAt(int tilex, int tiley) {
+    Point2 atpos;
+    
+    atpos.x = this->pos.x + tilex * BOX_TILE_WIDTH;
+    atpos.y = this->pos.y + tiley * BOX_TILE_HEIGHT;
+    
+    return atpos;
+}
 
     
-bool BoxAnimator::tick() {
+bool Animator::tick() {
     if (steps <= 0) {
         warningLog << "trying to move a sprite that has already reached its destination. Maybe done-event missed ?\n";
         // TODO - trigger animation-done event
         finished = true;
     } else 
     if (steps == 1) {
-        sprite->x = toX;
-        sprite->y = toY;
+        sprite->pos = toPos;
         steps --;
         finished = true;
-        gBoxMap->onBoxMoveDone(this);
-        // TODO - trigger animation-done event
+        infoLog << "animation finished\n";
     } else {
-        float stepX = (toX - sprite->x)/(float)steps;
-        float stepY = (toY - sprite->y)/(float)steps;
-        sprite->x += stepX;
-        sprite->y += stepY;
+        float stepX = (toPos.x - sprite->pos.x)/(float)steps;
+        float stepY = (toPos.y - sprite->pos.y)/(float)steps;
+        sprite->pos.x += stepX;
+        sprite->pos.y += stepY;
+        steps --;
     }
     return finished;
+}
+
+// go through animation slots and tick each one of them
+void Animations::tick() {
+    for (int i=0; i < count; i++) {
+        if ( ! animators[i].finished ) {
+            animators[i].tick();
+        }
+    }
+}
+
+// return an available animator and mark it as non-finished
+Animator* Animations::getAnimatorSlot() {
+    for (int i=0; i < count; i++) {
+        if (animators[i].finished) {
+            //animators[i].finished = false;
+            return animators + i;
+        }
+    }
+    errorLog << "no animator slots available" << "\n";
+    return 0;
 }
 
 
