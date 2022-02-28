@@ -93,7 +93,7 @@ BoxSprite* BoxFactory::create(BoxId boxId) {
     return boxSprite;
 }
 
-
+// screen position from tile coordinates
 Point2 Level::posAt(int tilex, int tiley) {
     Point2 atpos;
     
@@ -102,6 +102,24 @@ Point2 Level::posAt(int tilex, int tiley) {
     
     return atpos;
 }
+
+// return false if out of boxMap limits
+bool Level::tileAt(int screenx, int screeny, int& tilex, int& tiley) {
+    // make relative to BoxMap
+    screenx -= this->pos.x;
+    screeny -= this->pos.x;
+    
+    if (screenx < 0 || screenx >= boxMap->width * BOX_TILE_WIDTH)
+        return false;
+
+    if (screeny < 0 || screeny >= boxMap->height * BOX_TILE_HEIGHT)
+        return false;
+        
+    tilex = screenx / BOX_TILE_WIDTH;
+    tiley = screeny / BOX_TILE_HEIGHT;
+    return true;
+}
+
 
 BoxSprite* Level::newBoxAt(int mapX, int mapY, BoxId boxId) {
     BoxSprite* boxSprite = boxFactory->create(boxId);

@@ -40,6 +40,7 @@ int main(int argc, char** args) {
     Resources* resources = 0;
     BoxFactory* boxFactory = 0;
     Level* level = 0;
+    MouseState* mouseState = 0;
 
 	// Initialize SDL. SDL_Init will return -1 if it fails.
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
@@ -68,6 +69,8 @@ int main(int argc, char** args) {
     resources->registerImage("../files/brown.png", BROWN_BLOCK);
     resources->registerImage("../files/green.png", GREEN_BLOCK);
     
+    mouseState = new MouseState();
+    mouseState->update();
     gBoxMap = new BoxMap(10, 10);
     Animations* animations = new Animations(100);
     boxFactory = new BoxFactory(resources);
@@ -86,7 +89,19 @@ int main(int argc, char** args) {
     int destMapX;
     int destMapY;
 	// Main loop
+    
 	while (running) {
+        
+        mouseState->update();
+        if (mouseState->leftReleased) {
+            int mouseReleasedTileX = 0;
+            int mouseReleasedTileY = 0;
+            if ( level->tileAt(mouseState->mouseX, mouseState->mouseY, mouseReleasedTileX, mouseReleasedTileY) ) {
+                infoLog << "Mouse released at tile coords (" << mouseReleasedTileX << "," << mouseReleasedTileY << ")\n";
+            } else {
+                infoLog << "Mouse released outside of box map\n";
+            }
+        }
 
 		// Event loop
 		while (SDL_PollEvent(&ev) != 0) {
@@ -205,6 +220,8 @@ int main(int argc, char** args) {
     // wrap up
     if (gBoxMap)
         delete gBoxMap;
+    if (mouseState)
+        delete mouseState;
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();

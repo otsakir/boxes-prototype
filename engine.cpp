@@ -5,6 +5,37 @@
 
 extern LogStream errorLog; // statically linked global var
 extern LogStream warningLog; // statically linked global var
+extern LogStream infoLog;
+
+void MouseState::update() {
+    
+    if (!initialized) {
+        SDL_PumpEvents();
+        previousMouseButtons = SDL_GetMouseState(&mouseX, &mouseY);
+        initialized = true;
+    } else {
+        Uint32 mouseButtons;
+        SDL_PumpEvents();
+
+        mouseButtons = SDL_GetMouseState(&mouseX, &mouseY);
+        
+        if ( (previousMouseButtons & SDL_BUTTON_LMASK)==0 && (mouseButtons & SDL_BUTTON_LMASK)!=0 ) {
+            leftPressed = true;
+        } else {
+            leftPressed = false;
+        }
+        
+        if ( (previousMouseButtons & SDL_BUTTON_LMASK)!=0 && (mouseButtons & SDL_BUTTON_LMASK)==0 ) {
+            leftReleased = true;
+        } else {
+            leftReleased = false;
+        }  
+        
+        previousMouseButtons = mouseButtons;          
+    }
+
+}
+
 
 Resources::Resources(SDL_Renderer* renderer, int reserved, const char* rootPath) : renderer(renderer), reserved(reserved) {
     strncpy(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy

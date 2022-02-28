@@ -162,6 +162,7 @@ struct Level {
     
     // screen coordinates for box at tilex,tiley map position
     Point2 posAt(int tilex, int tiley);    
+    bool tileAt(int screenx, int screeny, int& tilex, int& tiley);
     // high level box creation 
     BoxSprite* newBoxAt(int mapX, int mapY, BoxId boxId);
     MoveStatus moveBlockLeft(int top, int left, int pastBottom, int pastRight); // TODO - define return value, game-over etc.

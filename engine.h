@@ -16,6 +16,22 @@ struct Point2 {
     Point2(float x, float y) : x(x), y(y) {}
 };
 
+// statefull mouse state
+class MouseState {
+private:
+    bool initialized = false;
+    Uint32 previousMouseButtons;
+
+public:
+
+    int mouseX;
+    int mouseY;
+    bool leftPressed = false;
+    bool leftReleased = false;
+
+    void update();
+};
+
 class Resources {
 private:
     char rootPath[MAX_FILEPATH_SIZE];
