@@ -52,22 +52,45 @@ Sprite*& BoxMap::at(int tilex, int tiley) {
     return boxes[width*tiley+tilex];
 }
 
-
+ 
 BoxSprite* BoxFactory::create(BoxId boxId) {
-    if (boxId == BoxId::RED_BOX) {
-        SDL_Texture* texture = resources->getImage(ImageId::RED_BLOCK);
-        SDL_Rect sourceRect;
-        sourceRect.x = 0;
-        sourceRect.y = 0;
-        sourceRect.w = 64;
-        sourceRect.h = 64;
-        RenderableBitmap* renderable = new RenderableBitmap(texture, sourceRect); // texture mem handled by Resources
-        BoxSprite* boxSprite = new BoxSprite(renderable);
-        return boxSprite;
-    } else {
-        warningLog << "unknown boxId: " << boxId << "\n";
-        return 0;
+    if (boxId == BoxId::RANDOM_BOX)
+        boxId = (BoxId) randomInRange(RED_BOX, GREEN_BOX);
+        
+    SDL_Texture* texture;
+    switch (boxId) {
+        case BoxId::RED_BOX:
+            texture = resources->getImage(ImageId::RED_BLOCK);
+        break;
+        case BoxId::BLUE_BOX:
+            texture = resources->getImage(ImageId::BLUE_BLOCK);
+        break;
+        case BoxId::ORANGE_BOX:
+            texture = resources->getImage(ImageId::ORANGE_BLOCK);
+        break;
+        case BoxId::GREY_BOX:
+            texture = resources->getImage(ImageId::GREY_BLOCK);
+        break;
+        case BoxId::BROWN_BOX:
+            texture = resources->getImage(ImageId::BROWN_BLOCK);
+        break;
+        case BoxId::GREEN_BOX:
+            texture = resources->getImage(ImageId::GREEN_BLOCK);
+        break;
+        default:
+            errorLog << "Can't create box. Invalid boxId: " << boxId << "\n";
+            return 0;
+        break;
     }
+        
+    SDL_Rect sourceRect;
+    sourceRect.x = 0;
+    sourceRect.y = 0;
+    sourceRect.w = 64;
+    sourceRect.h = 64;
+    RenderableBitmap* renderable = new RenderableBitmap(texture, sourceRect); // texture mem handled by Resources
+    BoxSprite* boxSprite = new BoxSprite(renderable);
+    return boxSprite;
 }
 
 
@@ -81,7 +104,6 @@ Point2 Level::posAt(int tilex, int tiley) {
 }
 
 BoxSprite* Level::newBoxAt(int mapX, int mapY, BoxId boxId) {
-    //if (boxMap->
     BoxSprite* boxSprite = boxFactory->create(boxId);
     if (boxSprite) {
         boxSprite->setPos( posAt(mapX, mapY) );
@@ -90,6 +112,58 @@ BoxSprite* Level::newBoxAt(int mapX, int mapY, BoxId boxId) {
     
     return boxSprite;
 } 
+
+// moves a block of boxes to the left
+MoveStatus Level::moveBlockLeft(int top, int left, int pastBottom, int pastRight) {
+    for (int i = left; i < pastRight; i++) {
+        for (int j=top; j< pastBottom; j++) {
+            Sprite*& srcMapPos = boxMap->at(i, j);
+            if ( srcMapPos ) {
+                Sprite* movedSprite = srcMapPos;
+                if (i > 0) { // make sure we didn't reach the left border
+                    Sprite*& destMapPos = boxMap->at(i-1,j);
+                    if (destMapPos) {
+                        errorLog << "Cannot move to the left. Tile already occupied: (" << i-1 << "," << j << ")/n";
+                        return MoveStatus::PAST_LEFT_LIMITS; // TODO - return error reason
+                    } else {
+                        destMapPos = srcMapPos;
+                        srcMapPos = 0;
+                        // set up animation
+                        Animator* animator = animations->getAnimatorSlot();
+                        Point2 targetPos = posAt(i-1,j);
+                        animator->set(movedSprite, targetPos,30);
+                    }
+                
+                } else {
+                    return MoveStatus::PAST_LEFT_LIMITS;
+                }
+            }
+        }
+    }
+    return MoveStatus::OK;
+}
+
+GameStatus Level::newColumn() {
+    MoveStatus status = moveBlockLeft(0,0,boxMap->height, boxMap->width);
+    if (status == MoveStatus::OK) {
+        for (int j=0; j < boxMap->height; j++) {
+            BoxSprite* boxSprite = boxFactory->create(BoxId::RANDOM_BOX);
+            if (boxSprite) {
+                boxSprite->setPos( posAt(boxMap->width, j) );
+                boxMap->putBox(boxMap->width-1, j, boxSprite);
+                Animator* animator = animations->getAnimatorSlot();
+                Point2 targetPos = posAt(boxMap->width-1,j);
+                animator->set(boxSprite, targetPos,30);
+            }            
+        }
+        return GameStatus::GAME_OK;
+    } else 
+    if (status == MoveStatus::PAST_LEFT_LIMITS) {
+        return GameStatus::GAME_OVER;
+    }
+
+    return GameStatus::GAME_ERROR; // unexpected behavior
+}
 
     
 bool Animator::tick() {

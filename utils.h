@@ -17,5 +17,7 @@ public:
     
 };
 
+int randomInRange(int min, int max);
+
 
 #endif

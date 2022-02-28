@@ -59,13 +59,19 @@ int main(int argc, char** args) {
 	}
     
     renderer = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED); // TODO fallback to software rendering, check SDL_RENDERER_PRESENTVSYNC
-    
+            
     resources = new Resources(renderer);
     resources->registerImage("../files/red.png", RED_BLOCK);
+    resources->registerImage("../files/blue.png", BLUE_BLOCK);
+    resources->registerImage("../files/orange.png", ORANGE_BLOCK);
+    resources->registerImage("../files/grey.png", GREY_BLOCK);
+    resources->registerImage("../files/brown.png", BROWN_BLOCK);
+    resources->registerImage("../files/green.png", GREEN_BLOCK);
+    
     gBoxMap = new BoxMap(10, 10);
     Animations* animations = new Animations(100);
     boxFactory = new BoxFactory(resources);
-    level = new Level(gBoxMap, boxFactory);
+    level = new Level(gBoxMap, boxFactory, animations);
 
 
     level->newBoxAt(5,4, BoxId::RED_BOX);
@@ -131,6 +137,28 @@ int main(int argc, char** args) {
                                 playerMapX = destMapX;
                                 playerMapY = destMapY;
                             }
+                        }
+                    } else {
+                        MoveStatus moveStatus;
+                        GameStatus gameStatus;
+                        switch (ev.key.keysym.sym) {
+                            case SDLK_j:
+                                moveStatus = level->moveBlockLeft(0,0,10,10);
+                                playerMapX --;
+                                if (moveStatus == MoveStatus::PAST_LEFT_LIMITS) {
+                                    infoLog << "reached left limits - GAME OVER\n";
+                                }
+                            break;
+                            case SDLK_k:
+                                gameStatus = level->newColumn();
+                                if (gameStatus == GameStatus::GAME_OK) {
+                                    playerMapX --;
+                                } else
+                                if (gameStatus == GameStatus::GAME_OVER) {
+                                    infoLog << "GAME OVER\n";
+                                } 
+                                
+                            break;                            
                         }
                     }
                 break;

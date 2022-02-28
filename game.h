@@ -7,13 +7,25 @@
 #define BOX_TILE_HEIGHT 64.0
 
 enum ImageId {
-    BLOCK1 = 1,
-    RED_BLOCK = 2,
+    RED_BLOCK,
+    BLUE_BLOCK,
+    ORANGE_BLOCK,
+    GREY_BLOCK,
+    BROWN_BLOCK,
+    GREEN_BLOCK,   
     
+     
 };
 
 enum BoxId {
-    RED_BOX = 1
+    RED_BOX = 1, // need to number them in order to randomize
+    BLUE_BOX = 2,
+    ORANGE_BOX = 3,
+    GREY_BOX = 4,
+    BROWN_BOX = 5,
+    GREEN_BOX = 6,
+    
+    RANDOM_BOX = 7
 };
 
 // when a box moves in the map, these are the available options
@@ -22,6 +34,20 @@ enum BoxMoveDirection {
     MOVE_RIGHT,
     MOVE_UP,
     MOVE_DOWN
+};
+
+// status of moving boxes on the map
+enum MoveStatus {
+    OK,
+    PAST_LIMITS,
+    PAST_LEFT_LIMITS,
+    ALREADY_OCCUPIED
+};
+
+enum GameStatus {
+    GAME_OK,
+    GAME_OVER,
+    GAME_ERROR
 };
 
 
@@ -81,25 +107,6 @@ public:
        
 };
 
-
-
-struct Level {
-
-    Point2 pos; // top-left corner
-
-    BoxMap* boxMap;
-    BoxFactory* boxFactory;
-        
-    Level(BoxMap* boxMap, BoxFactory* boxFactory) : boxMap(boxMap), boxFactory(boxFactory) {}
-    
-    // screen coordinates for box at tilex,tiley map position
-    Point2 posAt(int tilex, int tiley);    
-    // high level box creation 
-    BoxSprite* newBoxAt(int mapX, int mapY, BoxId boxId);
-
-};
-
-
 struct Animator {
     Sprite* sprite;
     Point2 toPos;
@@ -141,6 +148,28 @@ struct Animations {
     Animator* getAnimatorSlot();
     
 };
+
+// high level game api
+struct Level {
+
+    Point2 pos; // top-left corner
+
+    BoxMap* boxMap;
+    BoxFactory* boxFactory;
+    Animations* animations;
+        
+    Level(BoxMap* boxMap, BoxFactory* boxFactory, Animations* animations) : boxMap(boxMap), boxFactory(boxFactory), animations(animations) {}
+    
+    // screen coordinates for box at tilex,tiley map position
+    Point2 posAt(int tilex, int tiley);    
+    // high level box creation 
+    BoxSprite* newBoxAt(int mapX, int mapY, BoxId boxId);
+    MoveStatus moveBlockLeft(int top, int left, int pastBottom, int pastRight); // TODO - define return value, game-over etc.
+    GameStatus newColumn(); // a new column is added periodically to the right and all boxes are moved to the left
+
+};
+
+
 
 
 #endif
