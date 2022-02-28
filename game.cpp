@@ -7,7 +7,7 @@ extern LogStream errorLog;
 extern LogStream infoLog;
 extern BoxMap* gBoxMap;
 
-Sprite* BoxMap::OUT_OF_LIMITS;
+BoxSprite* BoxMap::OUT_OF_LIMITS;
 
 void BoxMap::renderBoxes(SDL_Renderer* renderer) {
     for (int i=0; i < width; i++) {
@@ -20,7 +20,7 @@ void BoxMap::renderBoxes(SDL_Renderer* renderer) {
     }
 }
 
-void BoxMap::putBox(int posX, int posY, Sprite* boxSprite) {
+void BoxMap::putBox(int posX, int posY, BoxSprite* boxSprite) {
     // TODO - what if boxSprite == 0
     if ( boxes[posY*width + posX] ) {
         warningLog << "BoxMap: there is already a box position (" << posX << "," << posY << ")\n";
@@ -45,7 +45,7 @@ BoxMap::PosStatus BoxMap::boxAt(int posX, int posY, Sprite*& sprite) {
 */
 
 // returns a reference to the box item at position (tilex,tiley) 
-Sprite*& BoxMap::at(int tilex, int tiley) {
+BoxSprite*& BoxMap::at(int tilex, int tiley) {
     if (tilex < 0 || tilex >= width || tiley < 0 || tiley >=height)
         return BoxMap::OUT_OF_LIMITS;
     
@@ -89,7 +89,7 @@ BoxSprite* BoxFactory::create(BoxId boxId) {
     sourceRect.w = 64;
     sourceRect.h = 64;
     RenderableBitmap* renderable = new RenderableBitmap(texture, sourceRect); // texture mem handled by Resources
-    BoxSprite* boxSprite = new BoxSprite(renderable);
+    BoxSprite* boxSprite = new BoxSprite(renderable, boxId);
     return boxSprite;
 }
 
@@ -104,7 +104,7 @@ Point2 Level::posAt(int tilex, int tiley) {
 }
 
 // return false if out of boxMap limits
-bool Level::tileAt(int screenx, int screeny, int& tilex, int& tiley) {
+bool Level::tileXYAt(int screenx, int screeny, int& tilex, int& tiley) {
     // make relative to BoxMap
     screenx -= this->pos.x;
     screeny -= this->pos.x;
@@ -135,11 +135,11 @@ BoxSprite* Level::newBoxAt(int mapX, int mapY, BoxId boxId) {
 MoveStatus Level::moveBlockLeft(int top, int left, int pastBottom, int pastRight) {
     for (int i = left; i < pastRight; i++) {
         for (int j=top; j< pastBottom; j++) {
-            Sprite*& srcMapPos = boxMap->at(i, j);
+            BoxSprite*& srcMapPos = boxMap->at(i, j);
             if ( srcMapPos ) {
-                Sprite* movedSprite = srcMapPos;
+                BoxSprite* movedSprite = srcMapPos;
                 if (i > 0) { // make sure we didn't reach the left border
-                    Sprite*& destMapPos = boxMap->at(i-1,j);
+                    BoxSprite*& destMapPos = boxMap->at(i-1,j);
                     if (destMapPos) {
                         errorLog << "Cannot move to the left. Tile already occupied: (" << i-1 << "," << j << ")/n";
                         return MoveStatus::PAST_LEFT_LIMITS; // TODO - return error reason
@@ -182,6 +182,53 @@ GameStatus Level::newColumn() {
 
     return GameStatus::GAME_ERROR; // unexpected behavior
 }
+
+// clicked box are discarded using this function
+// references BoxMap sprite location
+void Level::discardBox(BoxSprite*& discardedSprite) {
+    discardedSprite = 0;
+    // TODO start an animation to make sprite disappear
+}
+
+void Level::discardSameColor(int tilex, int tiley, int& discardedCount, BoxId prevBoxId) {
+    BoxSprite*& currentBox = boxMap->at(tilex, tiley);
+    
+    if (currentBox == 0 || &currentBox == &BoxMap::OUT_OF_LIMITS) {
+        return; // empty tile or tile out of map bounds
+    } else {
+        BoxId currentBoxId = currentBox->boxId;
+        if (currentBoxId == prevBoxId) {
+            discardBox(currentBox);
+            discardedCount ++;
+        }
+        if (currentBoxId == prevBoxId || prevBoxId == UNDEFINED_BOX) {
+            discardSameColor(tilex-1, tiley, discardedCount, currentBoxId);
+            discardSameColor(tilex, tiley-1, discardedCount, currentBoxId);
+            discardSameColor(tilex+1, tiley, discardedCount, currentBoxId);
+            discardSameColor(tilex, tiley+1, discardedCount, currentBoxId);
+        }
+    }
+}
+
+/*
+ * > recursion unit (x,y, &discardedCount, prevColor) <
+curColor = color(x,y)
+if (emptyTile)
+    return
+else if (curColor == prevColor)
+    map(x,y) = 0
+    discarded ++;
+    recursion_unit(x-1,y,curColor)
+    recursion_unit(x-1, y-1, curColor)
+    recursion_unit(x+1, y, curColor)
+    recursion_unit(x+1, y+1, curColor)
+else if (prevColor == notGiven)
+    recursion_unit(x-1,y,curColor)
+    recursion_unit(x-1, y-1, curColor)
+    recursion_unit(x+1, y, curColor)
+    recursion_unit(x+1, y+1, curColor)
+end 
+*/
 
     
 bool Animator::tick() {

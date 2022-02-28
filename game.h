@@ -25,7 +25,8 @@ enum BoxId {
     BROWN_BOX = 5,
     GREEN_BOX = 6,
     
-    RANDOM_BOX = 7
+    RANDOM_BOX = 7,
+    UNDEFINED_BOX = 8
 };
 
 // when a box moves in the map, these are the available options
@@ -58,8 +59,9 @@ class Sprite;
 
 class BoxSprite : public Sprite {
 public:
+    BoxId boxId;
 
-    BoxSprite(Renderable* renderable) : Sprite(renderable) {}
+    BoxSprite(Renderable* renderable, BoxId boxId) : Sprite(renderable), boxId(boxId) {}
 };
 
 
@@ -67,15 +69,15 @@ public:
 // a rectangular map with colored boxes where boxes move, disappear and all gameplay is implemented
 struct BoxMap {
     
-    static Sprite* OUT_OF_LIMITS; // see Sprite*& at(int tilex, int tiley) below
+    static BoxSprite* OUT_OF_LIMITS; // see Sprite*& at(int tilex, int tiley) below
 
     int width; // number of boxes in x
     int height;  // number of boxes in y
     
-    Sprite** boxes = 0; // BoxMap owns the sprites
+    BoxSprite** boxes = 0; // BoxMap owns the sprites
 
     BoxMap(int width, int height) : width(width), height(height) {        
-        boxes = new Sprite*[width*height];
+        boxes = new BoxSprite*[width*height];
         memset(boxes, 0, width*height*sizeof(boxes[0])); // initialize
     }
     
@@ -87,11 +89,11 @@ struct BoxMap {
     }
     
     void renderBoxes(SDL_Renderer* renderer);
-    void putBox(int posX, int posY, Sprite* boxSprite);    
+    void putBox(int posX, int posY, BoxSprite* boxSprite);    
     inline int getWidth() { return width; }
     inline int getHeight() { return height; }
     
-    Sprite*& at(int tilex, int tiley);  // to check if tile out of map limits : if &boxMap->at(mapx, mapy) == &BoxMap::OUT_OF_LIMITS
+    BoxSprite*& at(int tilex, int tiley);  // to check if tile out of map limits : if &boxMap->at(mapx, mapy) == &BoxMap::OUT_OF_LIMITS
     
 };
 
@@ -150,8 +152,11 @@ struct Animations {
 };
 
 // high level game api
-struct Level {
+class Level {
+private:
+    void discardBox(BoxSprite*& discardedSprite);
 
+public:
     Point2 pos; // top-left corner
 
     BoxMap* boxMap;
@@ -162,11 +167,12 @@ struct Level {
     
     // screen coordinates for box at tilex,tiley map position
     Point2 posAt(int tilex, int tiley);    
-    bool tileAt(int screenx, int screeny, int& tilex, int& tiley);
+    bool tileXYAt(int screenx, int screeny, int& tilex, int& tiley);
     // high level box creation 
     BoxSprite* newBoxAt(int mapX, int mapY, BoxId boxId);
     MoveStatus moveBlockLeft(int top, int left, int pastBottom, int pastRight); // TODO - define return value, game-over etc.
     GameStatus newColumn(); // a new column is added periodically to the right and all boxes are moved to the left
+    void discardSameColor(int tilex, int tiley, int& discardedCount, BoxId prevBoxId = UNDEFINED_BOX);
 
 };
 

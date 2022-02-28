@@ -96,8 +96,17 @@ int main(int argc, char** args) {
         if (mouseState->leftReleased) {
             int mouseReleasedTileX = 0;
             int mouseReleasedTileY = 0;
-            if ( level->tileAt(mouseState->mouseX, mouseState->mouseY, mouseReleasedTileX, mouseReleasedTileY) ) {
-                infoLog << "Mouse released at tile coords (" << mouseReleasedTileX << "," << mouseReleasedTileY << ")\n";
+            if ( level->tileXYAt(mouseState->mouseX, mouseState->mouseY, mouseReleasedTileX, mouseReleasedTileY) ) {
+                BoxSprite*& clickedSprite = gBoxMap->at(mouseReleasedTileX, mouseReleasedTileY);
+                if (clickedSprite) {
+                    infoLog << "Mouse released at tile (" << mouseReleasedTileX << "," << mouseReleasedTileY << ") - " << clickedSprite->boxId << "\n";
+                    int discardedCount = 0;
+                    level->discardSameColor(mouseReleasedTileX, mouseReleasedTileY, discardedCount, BoxId::UNDEFINED_BOX);
+                    infoLog << discardedCount << " tiles discarded\n";
+                    
+                } else {
+                    infoLog << "Mouse released at tile (" << mouseReleasedTileX << "," << mouseReleasedTileY << ") - " << "no tile there\n";
+                }                
             } else {
                 infoLog << "Mouse released outside of box map\n";
             }
@@ -132,12 +141,12 @@ int main(int argc, char** args) {
                         }
 
                         // keep referenences of source and dest positions in map
-                        Sprite*& srcMapPos = gBoxMap->at(playerMapX,playerMapY);
-                        Sprite*& destMapPos = gBoxMap->at(destMapX, destMapY);
+                        BoxSprite*& srcMapPos = gBoxMap->at(playerMapX,playerMapY);
+                        BoxSprite*& destMapPos = gBoxMap->at(destMapX, destMapY);
                         if (&destMapPos == &BoxMap::OUT_OF_LIMITS) {
                             warningLog << "Trying to move outside map\n";
                         } else {
-                            Sprite* movedSprite = srcMapPos; // keep a copy of the sprite too build the animation
+                            BoxSprite* movedSprite = srcMapPos; // keep a copy of the sprite too build the animation
                             // move the sprite in BoxMap 
                             if (destMapPos == 0) { // empty ?
                                 infoLog << "Moving the sprite...\n";
