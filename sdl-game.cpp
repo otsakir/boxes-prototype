@@ -15,55 +15,6 @@ LogStream warningLog(std::cerr);
 BoxMap* gBoxMap = 0;
 
 
-
-
-class BoxSprite : public Sprite {
-public:
-
-    BoxSprite(Renderable* renderable) : Sprite(renderable) {}
-};
-
-
-// knows how to build boxes
-class BoxFactory {
-private:
-    Resources* resources;
-    BoxMap* boxMap;
-    Level* level;
-public:
-    BoxFactory(Resources* resources, BoxMap* boxMap, Level* level) : resources(resources), boxMap(boxMap), level(level) {}
-
-    BoxSprite* create(BoxId boxId) {
-        if (boxId == BoxId::RED_BOX) {
-            SDL_Texture* texture = resources->getImage(ImageId::RED_BLOCK);
-            SDL_Rect sourceRect;
-            sourceRect.x = 0;
-            sourceRect.y = 0;
-            sourceRect.w = 64;
-            sourceRect.h = 64;
-            RenderableBitmap* renderable = new RenderableBitmap(texture, sourceRect); // texture mem handled by Resources
-            BoxSprite* boxSprite = new BoxSprite(renderable);
-            return boxSprite;
-        } else {
-            warningLog << "unknown boxId: " << boxId << "\n";
-            return 0;
-        }
-    }
-    
-    // "decorate" create() above. Also, place in map
-    BoxSprite* create(BoxId boxId, int mapX, int mapY) {
-        BoxSprite* boxSprite = create(boxId);
-
-        if (boxSprite) {
-            boxSprite->setPos( level->posAt(mapX, mapY) );
-            boxMap->putBox(mapX, mapY, boxSprite);
-        }
-        
-        return boxSprite;
-    }    
-};
-
-
 #include "game.h"
 
 class OreslikeGame {
@@ -80,7 +31,6 @@ public:
 };
     
 
-
 // You must include the command line parameters for your main function to be recognized by SDL
 int main(int argc, char** args) {
     
@@ -90,8 +40,6 @@ int main(int argc, char** args) {
     Resources* resources = 0;
     BoxFactory* boxFactory = 0;
     Level* level = 0;
-
-
 
 	// Initialize SDL. SDL_Init will return -1 if it fails.
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
@@ -115,23 +63,13 @@ int main(int argc, char** args) {
     resources = new Resources(renderer);
     resources->registerImage("../files/red.png", RED_BLOCK);
     gBoxMap = new BoxMap(10, 10);
-    level = new Level(gBoxMap);
     Animations* animations = new Animations(100);
-    boxFactory = new BoxFactory(resources, gBoxMap, level);
+    boxFactory = new BoxFactory(resources);
+    level = new Level(gBoxMap, boxFactory);
 
-    boxFactory->create(BoxId::RED_BOX, 5,4);
-    boxFactory->create(BoxId::RED_BOX, 6,5);
-    
-    /*
-    for (int j=0; j < gBoxMap->getHeight(); j++) {
-        for (int i=0; i< gBoxMap->getWidth(); i++) {
-            if (i != j) {
-                BoxSprite* boxSprite = boxFactory->create(BoxId::RED_BOX);
-                boxSprite->setPos(BOX_TILE_WIDTH*i, BOX_TILE_HEIGHT*j);
-                gBoxMap->putBox(i,j, boxSprite);
-            }
-        }
-    }*/
+
+    level->newBoxAt(5,4, BoxId::RED_BOX);
+    level->newBoxAt(6,5, BoxId::RED_BOX);
 
 	SDL_Event ev;
 	bool running = true;
@@ -175,20 +113,24 @@ int main(int argc, char** args) {
                         // keep referenences of source and dest positions in map
                         Sprite*& srcMapPos = gBoxMap->at(playerMapX,playerMapY);
                         Sprite*& destMapPos = gBoxMap->at(destMapX, destMapY);
-                        Sprite* movedSprite = srcMapPos; // keep a copy of the sprite too build the animation
-                        // move the sprite in BoxMap 
-                        if (destMapPos == 0) { // empty ?
-                            infoLog << "Moving the sprite...\n";
-                            
-                            destMapPos = srcMapPos;
-                            srcMapPos = 0; // clear source position
-                            // setup animation
-                            Animator* animator = animations->getAnimatorSlot();
-                            Point2 targetPos = level->posAt(destMapX,destMapY);
-                            animator->set(movedSprite, targetPos,30);
-                            
-                            playerMapX = destMapX;
-                            playerMapY = destMapY;
+                        if (&destMapPos == &BoxMap::OUT_OF_LIMITS) {
+                            warningLog << "Trying to move outside map\n";
+                        } else {
+                            Sprite* movedSprite = srcMapPos; // keep a copy of the sprite too build the animation
+                            // move the sprite in BoxMap 
+                            if (destMapPos == 0) { // empty ?
+                                infoLog << "Moving the sprite...\n";
+                                
+                                destMapPos = srcMapPos;
+                                srcMapPos = 0; // clear source position
+                                // setup animation
+                                Animator* animator = animations->getAnimatorSlot();
+                                Point2 targetPos = level->posAt(destMapX,destMapY);
+                                animator->set(movedSprite, targetPos,30);
+                                
+                                playerMapX = destMapX;
+                                playerMapY = destMapY;
+                            }
                         }
                     }
                 break;

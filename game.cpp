@@ -7,6 +7,7 @@ extern LogStream errorLog;
 extern LogStream infoLog;
 extern BoxMap* gBoxMap;
 
+Sprite* BoxMap::OUT_OF_LIMITS;
 
 void BoxMap::renderBoxes(SDL_Renderer* renderer) {
     for (int i=0; i < width; i++) {
@@ -28,6 +29,7 @@ void BoxMap::putBox(int posX, int posY, Sprite* boxSprite) {
     }
 }
 
+/*
 BoxMap::PosStatus BoxMap::boxAt(int posX, int posY, Sprite*& sprite) {
     if (posX >= 0 && posX < width) 
         if (posY >=0 && posY < height) {
@@ -40,18 +42,33 @@ BoxMap::PosStatus BoxMap::boxAt(int posX, int posY, Sprite*& sprite) {
     warningLog << "invalid map position (" << posX << "," << posY << ")\n";
     return PosInvalid;
 }
+*/
 
 // returns a reference to the box item at position (tilex,tiley) 
 Sprite*& BoxMap::at(int tilex, int tiley) {
+    if (tilex < 0 || tilex >= width || tiley < 0 || tiley >=height)
+        return BoxMap::OUT_OF_LIMITS;
+    
     return boxes[width*tiley+tilex];
 }
 
-/*
-void BoxMap::onBoxMoveDone(BoxAnimator* boxAnimator) {
-    boxes[boxAnimator->toMapY*width + boxAnimator->toMapX] = boxes[boxAnimator->fromMapY*width + boxAnimator->fromMapX];
-    boxes[boxAnimator->fromMapY*width + boxAnimator->fromMapX] = 0;
+
+BoxSprite* BoxFactory::create(BoxId boxId) {
+    if (boxId == BoxId::RED_BOX) {
+        SDL_Texture* texture = resources->getImage(ImageId::RED_BLOCK);
+        SDL_Rect sourceRect;
+        sourceRect.x = 0;
+        sourceRect.y = 0;
+        sourceRect.w = 64;
+        sourceRect.h = 64;
+        RenderableBitmap* renderable = new RenderableBitmap(texture, sourceRect); // texture mem handled by Resources
+        BoxSprite* boxSprite = new BoxSprite(renderable);
+        return boxSprite;
+    } else {
+        warningLog << "unknown boxId: " << boxId << "\n";
+        return 0;
+    }
 }
-* */
 
 
 Point2 Level::posAt(int tilex, int tiley) {
@@ -62,6 +79,17 @@ Point2 Level::posAt(int tilex, int tiley) {
     
     return atpos;
 }
+
+BoxSprite* Level::newBoxAt(int mapX, int mapY, BoxId boxId) {
+    //if (boxMap->
+    BoxSprite* boxSprite = boxFactory->create(boxId);
+    if (boxSprite) {
+        boxSprite->setPos( posAt(mapX, mapY) );
+        boxMap->putBox(mapX, mapY, boxSprite);
+    }
+    
+    return boxSprite;
+} 
 
     
 bool Animator::tick() {

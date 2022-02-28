@@ -29,14 +29,19 @@ class BoxAnimator;
 class Sprite;
 
 
+
+class BoxSprite : public Sprite {
+public:
+
+    BoxSprite(Renderable* renderable) : Sprite(renderable) {}
+};
+
+
+
 // a rectangular map with colored boxes where boxes move, disappear and all gameplay is implemented
 struct BoxMap {
-    // status of a position in the map. Can be empty, full or invalid
-    enum PosStatus {
-        PosEmpty,
-        PosFull,
-        PosInvalid
-    };
+    
+    static Sprite* OUT_OF_LIMITS; // see Sprite*& at(int tilex, int tiley) below
 
     int width; // number of boxes in x
     int height;  // number of boxes in y
@@ -57,24 +62,41 @@ struct BoxMap {
     
     void renderBoxes(SDL_Renderer* renderer);
     void putBox(int posX, int posY, Sprite* boxSprite);    
-    PosStatus boxAt(int posX, int posY, Sprite*& sprite);
-    //void onBoxMoveDone(BoxAnimator* boxAnimator);
     inline int getWidth() { return width; }
     inline int getHeight() { return height; }
     
-    Sprite*& at(int tilex, int tiley);
+    Sprite*& at(int tilex, int tiley);  // to check if tile out of map limits : if &boxMap->at(mapx, mapy) == &BoxMap::OUT_OF_LIMITS
     
 };
 
+// knows how to build boxes
+class BoxFactory {
+private:
+    Resources* resources;
+
+public:
+    BoxFactory(Resources* resources) : resources(resources) {}
+
+    BoxSprite* create(BoxId boxId);
+       
+};
+
+
 
 struct Level {
-    BoxMap* boxMap;
+
     Point2 pos; // top-left corner
+
+    BoxMap* boxMap;
+    BoxFactory* boxFactory;
+        
+    Level(BoxMap* boxMap, BoxFactory* boxFactory) : boxMap(boxMap), boxFactory(boxFactory) {}
     
-    Level(BoxMap* boxMap) : boxMap(boxMap) {}
-    
-    // returns screen coordinates of the box-tile at tilex,tiley position in the map
-    Point2 posAt(int tilex, int tiley);
+    // screen coordinates for box at tilex,tiley map position
+    Point2 posAt(int tilex, int tiley);    
+    // high level box creation 
+    BoxSprite* newBoxAt(int mapX, int mapY, BoxId boxId);
+
 };
 
 
