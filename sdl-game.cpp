@@ -77,21 +77,22 @@ int main(int argc, char** args) {
     level = new Level(gBoxMap, boxFactory, animations);
 
 
-    level->newBoxAt(5,4, BoxId::RED_BOX);
-    level->newBoxAt(6,5, BoxId::RED_BOX);
+    level->newBoxAt(0,8, BoxId::RED_BOX);
+    //level->newBoxAt(6,8, BoxId::RED_BOX);
 
 	SDL_Event ev;
 	bool running = true;
 
 	//unsigned int i = 0;
-    int playerMapX = 5;
-    int playerMapY = 4;
+    int playerMapX = 0;
+    int playerMapY = 8;
     int destMapX;
     int destMapY;
 	// Main loop
     
 	while (running) {
         
+        // click and discard
         mouseState->update();
         if (mouseState->leftReleased) {
             int mouseReleasedTileX = 0;
@@ -103,6 +104,10 @@ int main(int argc, char** args) {
                     int discardedCount = 0;
                     level->discardSameColor(mouseReleasedTileX, mouseReleasedTileY, discardedCount, BoxId::UNDEFINED_BOX);
                     infoLog << discardedCount << " tiles discarded\n";
+                    if ( !discardedCount ) {
+                        playerMapX = mouseReleasedTileX;
+                        playerMapY = mouseReleasedTileY;
+                    }
                     
                 } else {
                     infoLog << "Mouse released at tile (" << mouseReleasedTileX << "," << mouseReleasedTileY << ") - " << "no tile there\n";
@@ -111,6 +116,10 @@ int main(int argc, char** args) {
                 infoLog << "Mouse released outside of box map\n";
             }
         }
+        
+        // gravity
+        level->gravityEffect();
+        
 
 		// Event loop
 		while (SDL_PollEvent(&ev) != 0) {
@@ -142,24 +151,26 @@ int main(int argc, char** args) {
 
                         // keep referenences of source and dest positions in map
                         BoxSprite*& srcMapPos = gBoxMap->at(playerMapX,playerMapY);
-                        BoxSprite*& destMapPos = gBoxMap->at(destMapX, destMapY);
-                        if (&destMapPos == &BoxMap::OUT_OF_LIMITS) {
-                            warningLog << "Trying to move outside map\n";
-                        } else {
-                            BoxSprite* movedSprite = srcMapPos; // keep a copy of the sprite too build the animation
-                            // move the sprite in BoxMap 
-                            if (destMapPos == 0) { // empty ?
-                                infoLog << "Moving the sprite...\n";
-                                
-                                destMapPos = srcMapPos;
-                                srcMapPos = 0; // clear source position
-                                // setup animation
-                                Animator* animator = animations->getAnimatorSlot();
-                                Point2 targetPos = level->posAt(destMapX,destMapY);
-                                animator->set(movedSprite, targetPos,30);
-                                
-                                playerMapX = destMapX;
-                                playerMapY = destMapY;
+                        if (srcMapPos) { 
+                            BoxSprite*& destMapPos = gBoxMap->at(destMapX, destMapY);
+                            if (&destMapPos == &BoxMap::OUT_OF_LIMITS) {
+                                warningLog << "Trying to move outside map\n";
+                            } else {
+                                BoxSprite* movedSprite = srcMapPos; // keep a copy of the sprite too build the animation
+                                // move the sprite in BoxMap 
+                                if (destMapPos == 0) { // empty ?
+                                    infoLog << "Moving the sprite...\n";
+                                    
+                                    destMapPos = srcMapPos;
+                                    srcMapPos = 0; // clear source position
+                                    // setup animation
+                                    Animator* animator = animations->getAnimatorSlot();
+                                    Point2 targetPos = level->posAt(destMapX,destMapY);
+                                    animator->set(movedSprite, targetPos,30);
+                                    
+                                    playerMapX = destMapX;
+                                    playerMapY = destMapY;
+                                }
                             }
                         }
                     } else {

@@ -210,26 +210,42 @@ void Level::discardSameColor(int tilex, int tiley, int& discardedCount, BoxId pr
     }
 }
 
-/*
- * > recursion unit (x,y, &discardedCount, prevColor) <
-curColor = color(x,y)
-if (emptyTile)
-    return
-else if (curColor == prevColor)
-    map(x,y) = 0
-    discarded ++;
-    recursion_unit(x-1,y,curColor)
-    recursion_unit(x-1, y-1, curColor)
-    recursion_unit(x+1, y, curColor)
-    recursion_unit(x+1, y+1, curColor)
-else if (prevColor == notGiven)
-    recursion_unit(x-1,y,curColor)
-    recursion_unit(x-1, y-1, curColor)
-    recursion_unit(x+1, y, curColor)
-    recursion_unit(x+1, y+1, curColor)
-end 
-*/
+void Level::gravityEffect() {
+    for (int i=0; i < boxMap->width; i++) {
+        
+        
+        
+        int countEmpty = 0;
+        int j = boxMap->height-1;
+        BoxSprite* boxSprite = 0;
+        boxSprite = boxMap->at(i,j);
+        //  walk until empty sprite
+        while ( j>= 0 && boxSprite ) {
+            j--;
+            boxSprite = boxMap->at(i,j);
+        }
+        // count empty tiles
+        while ( j >= 0 && !boxSprite) {
+            while ( j>=0 && !boxSprite ) {
+                countEmpty ++;
+                
+                j--;
+                boxSprite = boxMap->at(i,j);
+            }            
+            // first non-empty should fall
+            if (boxSprite) {
+                boxMap->at(i,j+countEmpty) = boxMap->at(i,j);
+                boxMap->at(i,j) = 0;
+                Animator* animator = animations->getAnimatorSlot();
+                Point2 targetPos = posAt(i,j+countEmpty);
+                animator->set(boxSprite, targetPos,30);
 
+                boxSprite = 0; // we 'll keep searching for empty boxes upwards
+                countEmpty --;
+            }        
+        }
+    }
+}
     
 bool Animator::tick() {
     if (steps <= 0) {

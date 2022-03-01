@@ -173,6 +173,7 @@ public:
     MoveStatus moveBlockLeft(int top, int left, int pastBottom, int pastRight); // TODO - define return value, game-over etc.
     GameStatus newColumn(); // a new column is added periodically to the right and all boxes are moved to the left
     void discardSameColor(int tilex, int tiley, int& discardedCount, BoxId prevBoxId = UNDEFINED_BOX);
+    void gravityEffect();
 
 };
 
