@@ -57,14 +57,35 @@ int main(int argc, char** args) {
     
     mouseState = new MouseState();
     mouseState->update();
-    gBoxMap = new BoxMap(14, 10);
+    gBoxMap = new BoxMap(10, 10);
     Animations* animations = new Animations(140);
     boxFactory = new BoxFactory(resources);
     level = new Level(gBoxMap, boxFactory, animations);
 
+    
 
-    //level->newBoxAt(9,9, BoxId::RED_BOX);
-    //level->newBoxAt(6,8, BoxId::RED_BOX);
+    level->newBoxAt(9,8, BoxId::ORANGE_BOX);
+    level->newBoxAt(9,7, BoxId::ORANGE_BOX);
+    level->newBoxAt(9,6, BoxId::ORANGE_BOX);
+    
+    level->newBoxAt(8,8, BoxId::ORANGE_BOX);
+    level->newBoxAt(8,7, BoxId::ORANGE_BOX);
+    
+    level->newBoxAt(7,8, BoxId::ORANGE_BOX);
+    level->newBoxAt(7,7, BoxId::RED_BOX);
+    level->newBoxAt(7,6, BoxId::RED_BOX);
+    
+    level->newBoxAt(6,8, BoxId::RED_BOX);
+    level->newBoxAt(6,7, BoxId::RED_BOX);
+    level->newBoxAt(6,6, BoxId::RED_BOX);
+    
+    level->newBoxAt(9,9, BoxId::GREEN_BOX);
+    level->newBoxAt(8,9, BoxId::GREEN_BOX);
+    level->newBoxAt(7,9, BoxId::GREEN_BOX);
+    level->newBoxAt(6,9, BoxId::GREEN_BOX);
+    
+    
+    
 
 	SDL_Event ev;
 	bool running = true;

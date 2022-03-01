@@ -141,7 +141,7 @@ MoveStatus Level::moveBlockLeft(int top, int left, int pastBottom, int pastRight
                 if (i > 0) { // make sure we didn't reach the left border
                     BoxSprite*& destMapPos = boxMap->at(i-1,j);
                     if (destMapPos) {
-                        errorLog << "Cannot move to the left. Tile already occupied: (" << i-1 << "," << j << ")/n";
+                        errorLog << "Cannot move to the left. Tile already occupied: (" << i-1 << "," << j << ")\n";
                         return MoveStatus::ALREADY_OCCUPIED;
                     } else {
                         destMapPos = srcMapPos;
@@ -171,7 +171,7 @@ MoveStatus Level::moveBlockRight(int top, int left, int pastBottom, int pastRigh
                 if (i+1 < boxMap->width) { // make sure we didn't reach the right border
                     BoxSprite*& destMapPos = boxMap->at(i+1,j);
                     if (destMapPos) {
-                        errorLog << "Cannot move to the right. Tile already occupied: (" << i+1 << "," << j << ")/n";
+                        errorLog << "Cannot move to the right. Tile already occupied: (" << i+1 << "," << j << ")\n";
                         return MoveStatus::ALREADY_OCCUPIED;
                     } else {
                         destMapPos = srcMapPos;
@@ -201,7 +201,7 @@ MoveStatus Level::moveColumnRight(int i, int posCount) {
         if (srcMapPos) {
             BoxSprite* movedSprite = srcMapPos;
             if (destMapPos) {
-                errorLog << "Cannot move column to the right. Tile already occupied: (" << i+posCount << "," << j << ")/n";
+                errorLog << "Cannot move column to the right. Tile already occupied: (" << i+posCount << "," << j << ")\n";
                 return MoveStatus::ALREADY_OCCUPIED;
             } else {
                 destMapPos = srcMapPos;
@@ -306,7 +306,7 @@ int Level::gravityEffect() {
 
 // assumes valid column index (i) value
 bool Level::columnEmpty(int i) {
-    for (int j=0; j<boxMap->height-1; j++) {
+    for (int j=0; j<boxMap->height; j++) {
         if (boxMap->at(i,j))
             return false;
             
@@ -327,6 +327,7 @@ GameStatus Level::condense() {
             countEmpty ++;
             i--;
         }
+        // probably found a non-empty column
         if ( i >=0 ) {
             if ( moveColumnRight(i, countEmpty) != MoveStatus::OK ) 
                 return GameStatus::GAME_ERROR;
