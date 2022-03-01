@@ -55,7 +55,7 @@ BoxSprite*& BoxMap::at(int tilex, int tiley) {
  
 BoxSprite* BoxFactory::create(BoxId boxId) {
     if (boxId == BoxId::RANDOM_BOX)
-        boxId = (BoxId) randomInRange(RED_BOX, GREEN_BOX);
+        boxId = (BoxId) randomInRange(RED_BOX, ORANGE_BOX);
         
     SDL_Texture* texture;
     switch (boxId) {
@@ -142,7 +142,7 @@ MoveStatus Level::moveBlockLeft(int top, int left, int pastBottom, int pastRight
                     BoxSprite*& destMapPos = boxMap->at(i-1,j);
                     if (destMapPos) {
                         errorLog << "Cannot move to the left. Tile already occupied: (" << i-1 << "," << j << ")/n";
-                        return MoveStatus::PAST_LEFT_LIMITS; // TODO - return error reason
+                        return MoveStatus::ALREADY_OCCUPIED;
                     } else {
                         destMapPos = srcMapPos;
                         srcMapPos = 0;
@@ -155,6 +155,61 @@ MoveStatus Level::moveBlockLeft(int top, int left, int pastBottom, int pastRight
                 } else {
                     return MoveStatus::PAST_LEFT_LIMITS;
                 }
+            }
+        }
+    }
+    return MoveStatus::OK;
+}
+
+// moves a block of boxes to the left
+MoveStatus Level::moveBlockRight(int top, int left, int pastBottom, int pastRight) {
+    for (int i = pastRight-1; i >= left; i--) {
+        for (int j=top; j< pastBottom; j++) {
+            BoxSprite*& srcMapPos = boxMap->at(i, j);
+            if ( srcMapPos ) {
+                BoxSprite* movedSprite = srcMapPos;
+                if (i+1 < boxMap->width) { // make sure we didn't reach the right border
+                    BoxSprite*& destMapPos = boxMap->at(i+1,j);
+                    if (destMapPos) {
+                        errorLog << "Cannot move to the right. Tile already occupied: (" << i+1 << "," << j << ")/n";
+                        return MoveStatus::ALREADY_OCCUPIED;
+                    } else {
+                        destMapPos = srcMapPos;
+                        srcMapPos = 0;
+                        // set up animation
+                        Animator* animator = animations->getAnimatorSlot();
+                        Point2 targetPos = posAt(i+1,j);
+                        animator->set(movedSprite, targetPos,30);
+                    }
+                
+                } else {
+                    return MoveStatus::PAST_RIGHT_LIMITS;
+                }
+            }
+        }
+    }
+    return MoveStatus::OK;
+}
+
+MoveStatus Level::moveColumnRight(int i, int posCount) {
+    if ( i+posCount >= boxMap->width)
+        return MoveStatus::PAST_RIGHT_LIMITS;
+        
+    for (int j=0; j<boxMap->height; j++) {
+        BoxSprite*& srcMapPos = boxMap->at(i, j);
+        BoxSprite*& destMapPos = boxMap->at(i+posCount, j);
+        if (srcMapPos) {
+            BoxSprite* movedSprite = srcMapPos;
+            if (destMapPos) {
+                errorLog << "Cannot move column to the right. Tile already occupied: (" << i+posCount << "," << j << ")/n";
+                return MoveStatus::ALREADY_OCCUPIED;
+            } else {
+                destMapPos = srcMapPos;
+                srcMapPos = 0;
+                // set up animation
+                Animator* animator = animations->getAnimatorSlot();
+                Point2 targetPos = posAt(i+posCount, j);
+                animator->set(movedSprite, targetPos,30);            
             }
         }
     }
@@ -210,10 +265,10 @@ void Level::discardSameColor(int tilex, int tiley, int& discardedCount, BoxId pr
     }
 }
 
-void Level::gravityEffect() {
+// returns count of boxes moved
+int Level::gravityEffect() {
+    int movedCount = 0;
     for (int i=0; i < boxMap->width; i++) {
-        
-        
         
         int countEmpty = 0;
         int j = boxMap->height-1;
@@ -236,6 +291,7 @@ void Level::gravityEffect() {
             if (boxSprite) {
                 boxMap->at(i,j+countEmpty) = boxMap->at(i,j);
                 boxMap->at(i,j) = 0;
+                movedCount ++;
                 Animator* animator = animations->getAnimatorSlot();
                 Point2 targetPos = posAt(i,j+countEmpty);
                 animator->set(boxSprite, targetPos,30);
@@ -245,6 +301,39 @@ void Level::gravityEffect() {
             }        
         }
     }
+    return movedCount;
+}
+
+// assumes valid column index (i) value
+bool Level::columnEmpty(int i) {
+    for (int j=0; j<boxMap->height-1; j++) {
+        if (boxMap->at(i,j))
+            return false;
+            
+    }
+    return true;
+}
+
+GameStatus Level::condense() {
+    int i = boxMap->width-1; // starting from the right edge
+    
+    while ( i>=0 && !columnEmpty(i) ) {
+        i--;
+    }
+    // count empty columns
+    int countEmpty = 0;
+    while (i >=0 ) {
+        while ( i>=0 && columnEmpty(i) ) {
+            countEmpty ++;
+            i--;
+        }
+        if ( i >=0 ) {
+            if ( moveColumnRight(i, countEmpty) != MoveStatus::OK ) 
+                return GameStatus::GAME_ERROR;
+            i --;
+        }
+    }
+    return GameStatus::GAME_OK;
 }
     
 bool Animator::tick() {
@@ -257,7 +346,7 @@ bool Animator::tick() {
         sprite->pos = toPos;
         steps --;
         finished = true;
-        infoLog << "animation finished\n";
+        //infoLog << "animation finished\n";
     } else {
         float stepX = (toPos.x - sprite->pos.x)/(float)steps;
         float stepY = (toPos.y - sprite->pos.y)/(float)steps;

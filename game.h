@@ -42,6 +42,7 @@ enum MoveStatus {
     OK,
     PAST_LIMITS,
     PAST_LEFT_LIMITS,
+    PAST_RIGHT_LIMITS,
     ALREADY_OCCUPIED
 };
 
@@ -155,6 +156,7 @@ struct Animations {
 class Level {
 private:
     void discardBox(BoxSprite*& discardedSprite);
+    bool columnEmpty(int i);
 
 public:
     Point2 pos; // top-left corner
@@ -170,10 +172,13 @@ public:
     bool tileXYAt(int screenx, int screeny, int& tilex, int& tiley);
     // high level box creation 
     BoxSprite* newBoxAt(int mapX, int mapY, BoxId boxId);
-    MoveStatus moveBlockLeft(int top, int left, int pastBottom, int pastRight); // TODO - define return value, game-over etc.
+    MoveStatus moveBlockLeft(int top, int left, int pastBottom, int pastRight);
+    MoveStatus moveBlockRight(int top, int left, int pastBottom, int pastRight);
+    MoveStatus moveColumnRight(int i, int posCount);
     GameStatus newColumn(); // a new column is added periodically to the right and all boxes are moved to the left
     void discardSameColor(int tilex, int tiley, int& discardedCount, BoxId prevBoxId = UNDEFINED_BOX);
-    void gravityEffect();
+    int gravityEffect();
+    GameStatus condense();
 
 };
 

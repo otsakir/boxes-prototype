@@ -10,27 +10,13 @@ LogStream warningLog(std::cerr);
 #include "game.h"
 
 
-
 // global stuff (typically prefixed with 'g')
 BoxMap* gBoxMap = 0;
 
 
 #include "game.h"
 
-class OreslikeGame {
-public:
-
-
-    void main() {
-        // 1. ask user to get ready, press something, show "loading..." banner etc.
-        
-        // 2. load level, create and initialize boxmap
-                
-        // 3. gameplay loop - everything is set, keep rolling until game over
-    }
-};
-    
-
+  
 // You must include the command line parameters for your main function to be recognized by SDL
 int main(int argc, char** args) {
     
@@ -71,13 +57,13 @@ int main(int argc, char** args) {
     
     mouseState = new MouseState();
     mouseState->update();
-    gBoxMap = new BoxMap(10, 10);
-    Animations* animations = new Animations(100);
+    gBoxMap = new BoxMap(14, 10);
+    Animations* animations = new Animations(140);
     boxFactory = new BoxFactory(resources);
     level = new Level(gBoxMap, boxFactory, animations);
 
 
-    level->newBoxAt(0,8, BoxId::RED_BOX);
+    //level->newBoxAt(9,9, BoxId::RED_BOX);
     //level->newBoxAt(6,8, BoxId::RED_BOX);
 
 	SDL_Event ev;
@@ -85,7 +71,7 @@ int main(int argc, char** args) {
 
 	//unsigned int i = 0;
     int playerMapX = 0;
-    int playerMapY = 8;
+    int playerMapY = 0;
     int destMapX;
     int destMapY;
 	// Main loop
@@ -118,9 +104,16 @@ int main(int argc, char** args) {
         }
         
         // gravity
-        level->gravityEffect();
+        int movedCount = level->gravityEffect();
+        if (movedCount)
+            infoLog << "moved by 1st gravity: " << movedCount << "\n";
+        movedCount = level->gravityEffect();
+        if (movedCount)
+            infoLog << "moved by 2nd gravity: " << movedCount << "\n";
         
-
+        // condense empty columns
+        level->condense();
+        
 		// Event loop
 		while (SDL_PollEvent(&ev) != 0) {
 			// check event type
@@ -203,33 +196,14 @@ int main(int argc, char** args) {
         // animate
         animations->tick();
         
-
-		//// Fill the window with a white rectangle
-		//SDL_FillRect(winSurface, NULL, SDL_MapRGB(winSurface->format, 255, 255, i % 256 ));
-		//// Update the window display
-		//SDL_UpdateWindowSurface(window);
-
         //Clear screen
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear( renderer );
-
-/*
-        SDL_Rect destRect;
-        destRect.x = 10;
-        destRect.y = 10;
-        destRect.w = 64;
-        destRect.h = 64;
-*/
-        //Render texture to screen
-        //SDL_RenderCopy( renderer, resources->getImage(RED_BLOCK), NULL, NULL );
-        //SDL_RenderCopy( renderer, BlueShapes, NULL, &destRect );
         
         gBoxMap->renderBoxes(renderer);
 
         //Update screen
         SDL_RenderPresent( renderer );
-
-
 
 		// Wait before next frame
 		SDL_Delay(14);
@@ -242,6 +216,8 @@ int main(int argc, char** args) {
         delete gBoxMap;
     if (mouseState)
         delete mouseState;
+    if (resources)
+        delete resources;
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
