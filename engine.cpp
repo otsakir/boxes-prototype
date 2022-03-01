@@ -3,9 +3,45 @@
 #include "utils.h"
 
 
-extern LogStream errorLog; // statically linked global var
-extern LogStream warningLog; // statically linked global var
+// statically linked global var
+extern LogStream errorLog; 
+extern LogStream warningLog; 
 extern LogStream infoLog;
+
+bool Engine::initialize() {
+
+	// Initialize SDL. SDL_Init will return -1 if it fails.
+	if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+		errorLog << "Error initializing SDL: " << SDL_GetError() << "\n";
+		return false;
+	}
+
+	//window = SDL_CreateWindow("Example", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Example", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 896, 640, SDL_WINDOW_SHOWN);
+	if (!window) {
+		errorLog << "Error creating window: " << SDL_GetError() << "\n";
+        SDL_Quit();
+		return false;
+	}
+    
+    renderer = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED); // TODO fallback to software rendering, check SDL_RENDERER_PRESENTVSYNC
+    if (!renderer) {
+        errorLog << "Error creating renderer: " << SDL_GetError() << "\n";
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return false;
+    }
+    
+    return true;
+}
+
+void Engine::close() {
+    if (renderer)
+        SDL_DestroyRenderer(renderer);
+    if (window)
+        SDL_DestroyWindow(window);
+	SDL_Quit();
+}
 
 void MouseState::update() {
     
@@ -37,20 +73,19 @@ void MouseState::update() {
 }
 
 
-Resources::Resources(SDL_Renderer* renderer, int reserved, const char* rootPath) : renderer(renderer), reserved(reserved) {
+Texture::~Texture() {
+    if (sdlTexture) {
+        SDL_DestroyTexture(sdlTexture);
+    }
+}
+
+Resources::Resources(SDL_Renderer* renderer, const char* rootPath, int capacity ) : renderer(renderer), capacity(capacity) {
     strncpy(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy
     this->rootPath[MAX_FILEPATH_SIZE-1] = 0; // null-terminate just in case
-    textures = new SDL_Texture*[reserved];
-    memset(textures, 0, sizeof(textures[0])*reserved);
+    textures = new Texture[capacity];
 }
 
 Resources::~Resources() {
-    for (int i = 0; i < reserved; i++) {
-        if (textures[i]) {
-            SDL_DestroyTexture(textures[i]);
-            textures[i] = 0;
-        }
-    }
     delete [] textures;
 }
 
@@ -65,7 +100,7 @@ bool Resources::init() {
     return true;	
 }
 
-bool Resources::loadImage(const char* imagefile, SDL_Texture*& texture) {
+bool Resources::loadImage(const char* imagefile, SDL_Texture*& texture, int& w, int& h) {
     
     // load sample.png into image
     SDL_Surface *image;
@@ -73,47 +108,65 @@ bool Resources::loadImage(const char* imagefile, SDL_Texture*& texture) {
     if (!image) {
         errorLog << "IMG_Load: " << IMG_GetError() << "\n";
         return false;
+    } else {
+        infoLog << "Loaded image " << imagefile << " " << image->w << "X" << image->h << "\n";
     }
             
     SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, image);
     if (tex == NULL) {
         errorLog << "CreateTextureFromSurface failed: " << SDL_GetError() << "\n";
         SDL_FreeSurface(image);
+        return false;
     } else {
         texture = tex;
         SDL_FreeSurface(image);
+        w = image->w;
+        h = image->h;
+        return true;
     }
-    return true;
 }
 
-void Resources::registerImage(const char* imagefile, int imageId) {
-    SDL_Texture* texture;
-    if (loadImage(imagefile, texture)) {
-        if (textures[imageId]) {
-            warningLog << "registerImage: texture already set for " << imageId;
-        } else {
-            textures[imageId] = texture;
+// load an image file, create a texture for it and bind it with an identifier (see game.h:ImageId)
+bool Resources::registerImage(const char* imagefile, int imageId) {
+    SDL_Texture* sdlTexture;
+    int w, h;
+    if (textures[imageId].sdlTexture) {
+        warningLog << "registerImage: texture already set for " << imageId;
+    } else {
+        if (loadImage(imagefile, sdlTexture, w, h)) {     
+            Texture& texture = textures[imageId];
+            texture.sdlTexture = sdlTexture;
+            texture.w = w;
+            texture.h = h;
+            
+            return true;
         }
     }
+    return false;
+    
 }
 
-SDL_Texture* Resources::getImage(const int imageId) {
-    return textures[imageId];
+// return a texture wrapper by identifier
+Texture* Resources::getImage(const int imageId) {
+    return &textures[imageId];
 }
 
+// release image fascilities
 void Resources::done() {
     IMG_Quit();
 }
 
 
-
-RenderableBitmap::RenderableBitmap(SDL_Texture* texture, SDL_Rect& sourceRect) : RenderableBitmap(texture) {
-    SDL_Rect* prect = new SDL_Rect();
-    *prect = sourceRect;
-    this->sourceRect = prect;
-    // destination rectangle has the same width/height by default
-    width = sourceRect.w;
-    height = sourceRect.h;
+// if no blit width/height given will use the width/height of the texture
+RenderableBitmap::RenderableBitmap(Texture* texture, int blitWidth, int blitHeight) : sdlTexture(texture->sdlTexture) {
+    sourceRect = new SDL_Rect();
+    sourceRect->x = 0;
+    sourceRect->y = 0;
+    sourceRect->w = texture->w;
+    sourceRect->h = texture->h;
+    
+    this->blitWidth = blitWidth ?  blitWidth : texture->w;
+    this->blitHeight = blitHeight ? blitHeight : texture->h;
 }
 
 RenderableBitmap::~RenderableBitmap() {
@@ -125,9 +178,9 @@ void RenderableBitmap::render(float x, float y, SDL_Renderer* renderer) {
     SDL_Rect destRect;
     destRect.x = x;
     destRect.y = y;
-    destRect.w = width;
-    destRect.h = height;
-    SDL_RenderCopy(renderer, texture, sourceRect, &destRect);
+    destRect.w = blitWidth;
+    destRect.h = blitHeight;
+    SDL_RenderCopy(renderer, sdlTexture, sourceRect, &destRect);
 }
 
 

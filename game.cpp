@@ -5,9 +5,8 @@
 extern LogStream warningLog; 
 extern LogStream errorLog;
 extern LogStream infoLog;
-extern BoxMap* gBoxMap;
 
-BoxSprite* BoxMap::OUT_OF_LIMITS;
+BoxSprite* BoxMap::OUT_OF_LIMITS = 0; // definition for static field of BoxMap class. Needed when linking.
 
 void BoxMap::renderBoxes(SDL_Renderer* renderer) {
     for (int i=0; i < width; i++) {
@@ -29,21 +28,6 @@ void BoxMap::putBox(int posX, int posY, BoxSprite* boxSprite) {
     }
 }
 
-/*
-BoxMap::PosStatus BoxMap::boxAt(int posX, int posY, Sprite*& sprite) {
-    if (posX >= 0 && posX < width) 
-        if (posY >=0 && posY < height) {
-            sprite = boxes[posY*width + posX];
-            if (sprite) 
-                return PosFull;
-            else
-                return PosEmpty;
-        }
-    warningLog << "invalid map position (" << posX << "," << posY << ")\n";
-    return PosInvalid;
-}
-*/
-
 // returns a reference to the box item at position (tilex,tiley) 
 BoxSprite*& BoxMap::at(int tilex, int tiley) {
     if (tilex < 0 || tilex >= width || tiley < 0 || tiley >=height)
@@ -54,10 +38,12 @@ BoxSprite*& BoxMap::at(int tilex, int tiley) {
 
  
 BoxSprite* BoxFactory::create(BoxId boxId) {
-    if (boxId == BoxId::RANDOM_BOX)
-        boxId = (BoxId) randomInRange(RED_BOX, ORANGE_BOX);
+    if (boxId == BoxId::RANDOM_BOX) {
+        boxId = (BoxId) randomInRange(RED_BOX, GREEN_BOX);
+        //boxId = (BoxId) randomInRange(RED_BOX, ORANGE_BOX); // make it easier, use fewer colors
+    }
         
-    SDL_Texture* texture;
+    Texture* texture;
     switch (boxId) {
         case BoxId::RED_BOX:
             texture = resources->getImage(ImageId::RED_BLOCK);
@@ -83,18 +69,13 @@ BoxSprite* BoxFactory::create(BoxId boxId) {
         break;
     }
         
-    SDL_Rect sourceRect;
-    sourceRect.x = 0;
-    sourceRect.y = 0;
-    sourceRect.w = 64;
-    sourceRect.h = 64;
-    RenderableBitmap* renderable = new RenderableBitmap(texture, sourceRect); // texture mem handled by Resources
+    RenderableBitmap* renderable = new RenderableBitmap(texture, 64, 64); // texture mem handled by Resources
     BoxSprite* boxSprite = new BoxSprite(renderable, boxId);
     return boxSprite;
 }
 
 // screen position from tile coordinates
-Point2 Level::posAt(int tilex, int tiley) {
+Point2 Game::posAt(int tilex, int tiley) {
     Point2 atpos;
     
     atpos.x = this->pos.x + tilex * BOX_TILE_WIDTH;
@@ -104,7 +85,7 @@ Point2 Level::posAt(int tilex, int tiley) {
 }
 
 // return false if out of boxMap limits
-bool Level::tileXYAt(int screenx, int screeny, int& tilex, int& tiley) {
+bool Game::tileXYAt(int screenx, int screeny, int& tilex, int& tiley) {
     // make relative to BoxMap
     screenx -= this->pos.x;
     screeny -= this->pos.x;
@@ -121,10 +102,11 @@ bool Level::tileXYAt(int screenx, int screeny, int& tilex, int& tiley) {
 }
 
 
-BoxSprite* Level::newBoxAt(int mapX, int mapY, BoxId boxId) {
+BoxSprite* Game::newBoxAt(int mapX, int mapY, BoxId boxId) {
     BoxSprite* boxSprite = boxFactory->create(boxId);
     if (boxSprite) {
         boxSprite->setPos( posAt(mapX, mapY) );
+        //boxMap->at(mapX, mapY
         boxMap->putBox(mapX, mapY, boxSprite);
     }
     
@@ -132,7 +114,7 @@ BoxSprite* Level::newBoxAt(int mapX, int mapY, BoxId boxId) {
 } 
 
 // moves a block of boxes to the left
-MoveStatus Level::moveBlockLeft(int top, int left, int pastBottom, int pastRight) {
+MoveStatus Game::moveBlockLeft(int top, int left, int pastBottom, int pastRight) {
     for (int i = left; i < pastRight; i++) {
         for (int j=top; j< pastBottom; j++) {
             BoxSprite*& srcMapPos = boxMap->at(i, j);
@@ -162,7 +144,7 @@ MoveStatus Level::moveBlockLeft(int top, int left, int pastBottom, int pastRight
 }
 
 // moves a block of boxes to the left
-MoveStatus Level::moveBlockRight(int top, int left, int pastBottom, int pastRight) {
+MoveStatus Game::moveBlockRight(int top, int left, int pastBottom, int pastRight) {
     for (int i = pastRight-1; i >= left; i--) {
         for (int j=top; j< pastBottom; j++) {
             BoxSprite*& srcMapPos = boxMap->at(i, j);
@@ -191,7 +173,7 @@ MoveStatus Level::moveBlockRight(int top, int left, int pastBottom, int pastRigh
     return MoveStatus::OK;
 }
 
-MoveStatus Level::moveColumnRight(int i, int posCount) {
+MoveStatus Game::moveColumnRight(int i, int posCount) {
     if ( i+posCount >= boxMap->width)
         return MoveStatus::PAST_RIGHT_LIMITS;
         
@@ -216,7 +198,7 @@ MoveStatus Level::moveColumnRight(int i, int posCount) {
     return MoveStatus::OK;
 }
 
-GameStatus Level::newColumn() {
+GameStatus Game::newColumn() {
     MoveStatus status = moveBlockLeft(0,0,boxMap->height, boxMap->width);
     if (status == MoveStatus::OK) {
         for (int j=0; j < boxMap->height; j++) {
@@ -240,12 +222,14 @@ GameStatus Level::newColumn() {
 
 // clicked box are discarded using this function
 // references BoxMap sprite location
-void Level::discardBox(BoxSprite*& discardedSprite) {
+void Game::discardBox(BoxSprite*& discardedSprite) {
+    delete discardedSprite;
     discardedSprite = 0;
     // TODO start an animation to make sprite disappear
 }
 
-void Level::discardSameColor(int tilex, int tiley, int& discardedCount, BoxId prevBoxId) {
+// searches recursively for boxes with the same color as one at (tilex,tiley)
+void Game::discardSameColor(int tilex, int tiley, int& discardedCount, BoxId prevBoxId) {
     BoxSprite*& currentBox = boxMap->at(tilex, tiley);
     
     if (currentBox == 0 || &currentBox == &BoxMap::OUT_OF_LIMITS) {
@@ -265,8 +249,9 @@ void Level::discardSameColor(int tilex, int tiley, int& discardedCount, BoxId pr
     }
 }
 
-// returns count of boxes moved
-int Level::gravityEffect() {
+// makes unsupported boxes fall and creates animations for them
+// returns number of boxes that fell
+int Game::gravityEffect() {
     int movedCount = 0;
     for (int i=0; i < boxMap->width; i++) {
         
@@ -305,7 +290,7 @@ int Level::gravityEffect() {
 }
 
 // assumes valid column index (i) value
-bool Level::columnEmpty(int i) {
+bool Game::columnEmpty(int i) {
     for (int j=0; j<boxMap->height; j++) {
         if (boxMap->at(i,j))
             return false;
@@ -314,7 +299,8 @@ bool Level::columnEmpty(int i) {
     return true;
 }
 
-GameStatus Level::condense() {
+// rightward condensing of column gaps
+GameStatus Game::condense() {
     int i = boxMap->width-1; // starting from the right edge
     
     while ( i>=0 && !columnEmpty(i) ) {

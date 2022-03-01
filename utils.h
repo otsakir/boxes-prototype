@@ -17,6 +17,7 @@ public:
     
 };
 
+// return random in between 'min' and 'max'
 int randomInRange(int min, int max);
 
 

@@ -1,6 +1,5 @@
 #include "utils.h"
 
-//#include <stdio.h>
 #include <stdlib.h>
 
 LogStream& LogStream::operator<<(const char* arg) {

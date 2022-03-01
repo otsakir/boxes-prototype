@@ -1,11 +1,9 @@
 #ifndef _ENGINE_H_
 #define _ENGINE_H_
 
+#include <SDL.h>
 
 #define MAX_FILEPATH_SIZE 128
-//#define MAX_RESOURCE_IMAGES 100 // how much slots to allocate for images in the Resources objects
-
-#include <SDL.h>
 
 
 struct Point2 {
@@ -15,6 +13,7 @@ struct Point2 {
     Point2() : x(0), y(0) {}
     Point2(float x, float y) : x(x), y(y) {}
 };
+
 
 // statefull mouse state
 class MouseState {
@@ -32,25 +31,48 @@ public:
     void update();
 };
 
+
+class Engine {
+public:
+	SDL_Window* window = 0;
+    SDL_Renderer* renderer = 0;
+    MouseState mouseState;
+
+    bool initialize();
+    void close();
+};
+
+
+// convenience wrapper class of SDL_Texture
+class Texture {
+public:
+    SDL_Texture* sdlTexture = 0;
+    int w = 0;
+    int h = 0;
+    
+    ~Texture();
+};
+
+
 class Resources {
 private:
     char rootPath[MAX_FILEPATH_SIZE];
     SDL_Renderer* renderer;
-    SDL_Texture** textures;
-    int reserved; // number of slots in 'textures' 
+    Texture* textures ;
+    int capacity; // number of slots in 'textures' 
+    
+    bool loadImage(const char* imagefile, SDL_Texture*& texture, int& w, int& h);
     
 public:
 
-	Resources(SDL_Renderer* renderer, int reserved = 16, const char* rootPath = "");
+    Resources(SDL_Renderer* renderer, const char* rootPath = "", int capacity = 16);
     ~Resources();
 
 	bool init();
-	bool loadImage(const char* imagefile, SDL_Texture*& texture);    
-    void registerImage(const char* imagefile, int imageId);
-    SDL_Texture* getImage(const int imageId);
-    void done();
+    bool registerImage(const char* imagefile, int imageId);
+    Texture* getImage(const int imageId);
+    void done(); // unload image loading stuff
     
-
 };
 
 
@@ -59,25 +81,25 @@ class Renderable {
 private:
 public:
 	virtual void render(float x, float y, SDL_Renderer* renderer) = 0;
-	float width = 10;    // size when blitted to the destination 
-	float height = 10;   // ...
+	float blitWidth = 10;
+	float blitHeight = 10;   
 };
+
 
 // a renderable based on a raster graphic source
 class RenderableBitmap : public Renderable {
 private:
-	SDL_Texture* texture = 0; // does not own texture
+	SDL_Texture* sdlTexture = 0; // does not own texture
     SDL_Rect* sourceRect = 0; // source rectangle within texture. If null the whole texture is assumed. Owned by RenderableBitmap.
 	
 public:
-
-    RenderableBitmap(SDL_Texture* texture) :  texture(texture) {}
-    RenderableBitmap(SDL_Texture* texture, SDL_Rect& sourceRect);
+    RenderableBitmap(Texture* texture, int blitWidth = 0, int blitHeight = 0);
     ~RenderableBitmap();
-    
+
 	virtual void render(float x, float y, SDL_Renderer* renderer);
 
 };
+
 
 class Sprite {
 public:

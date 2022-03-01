@@ -25,17 +25,10 @@ enum BoxId {
     BROWN_BOX = 5,
     GREEN_BOX = 6,
     
-    RANDOM_BOX = 7,
+    RANDOM_BOX = 7, // special ids
     UNDEFINED_BOX = 8
 };
 
-// when a box moves in the map, these are the available options
-enum BoxMoveDirection {
-    MOVE_LEFT = 1,
-    MOVE_RIGHT,
-    MOVE_UP,
-    MOVE_DOWN
-};
 
 // status of moving boxes on the map
 enum MoveStatus {
@@ -45,6 +38,7 @@ enum MoveStatus {
     PAST_RIGHT_LIMITS,
     ALREADY_OCCUPIED
 };
+
 
 enum GameStatus {
     GAME_OK,
@@ -58,6 +52,8 @@ class Sprite;
 
 
 
+
+// The fundamental gameplay unit. A colored brick in a wall with many others.
 class BoxSprite : public Sprite {
 public:
     BoxId boxId;
@@ -67,10 +63,10 @@ public:
 
 
 
-// a rectangular map with colored boxes where boxes move, disappear and all gameplay is implemented
+// Core gameplay data structure. Defines a rectangular map with clickable colored boxes that fall, collapse and disappear under conditions
 struct BoxMap {
     
-    static BoxSprite* OUT_OF_LIMITS; // see Sprite*& at(int tilex, int tiley) below
+    static BoxSprite* OUT_OF_LIMITS; // see Sprite*& at(int tilex, int tiley) below on how to use this
 
     int width; // number of boxes in x
     int height;  // number of boxes in y
@@ -110,6 +106,7 @@ public:
        
 };
 
+// moving a sprite is done by an animator. Knows the final destinations (toPos). Set 'finished' to mark it done.
 struct Animator {
     Sprite* sprite;
     Point2 toPos;
@@ -118,10 +115,10 @@ struct Animator {
     
     Animator() : sprite(0), steps(0), finished(true) {}
         
-    // move one step further
-    // returns true when done
+    // Move sprite one step further. Returns true when done.
     bool tick();
-    
+
+    // initiate the animation
     void set(Sprite* sprite, Point2 pos, int steps) {
         this->sprite = sprite;
         this->toPos = pos;
@@ -131,7 +128,7 @@ struct Animator {
     
 };
 
-// a pool for Animators
+// a (not efficient) pool for Animators
 struct Animations {
 
     Animator* animators;
@@ -153,19 +150,20 @@ struct Animations {
 };
 
 // high level game api
-class Level {
+class Game {
 private:
     void discardBox(BoxSprite*& discardedSprite);
     bool columnEmpty(int i);
 
 public:
     Point2 pos; // top-left corner
+    Uint32 columnFeedPeriod = 5000; // in millisec
 
     BoxMap* boxMap;
     BoxFactory* boxFactory;
     Animations* animations;
         
-    Level(BoxMap* boxMap, BoxFactory* boxFactory, Animations* animations) : boxMap(boxMap), boxFactory(boxFactory), animations(animations) {}
+    Game(BoxMap* boxMap, BoxFactory* boxFactory, Animations* animations) : boxMap(boxMap), boxFactory(boxFactory), animations(animations) {}
     
     // screen coordinates for box at tilex,tiley map position
     Point2 posAt(int tilex, int tiley);    
