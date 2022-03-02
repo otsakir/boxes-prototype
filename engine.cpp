@@ -80,8 +80,8 @@ Texture::~Texture() {
 }
 
 Resources::Resources(SDL_Renderer* renderer, const char* rootPath, int capacity ) : renderer(renderer), capacity(capacity) {
-    //strncpy(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy
-    strncpy_s(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy
+    strncpy(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy  // for linux
+    //strncpy_s(this->rootPath, rootPath, MAX_FILEPATH_SIZE); // keep a local copy // for win
     this->rootPath[MAX_FILEPATH_SIZE-1] = 0; // null-terminate just in case
     textures = new Texture[capacity];
 }
