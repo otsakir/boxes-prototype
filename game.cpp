@@ -88,7 +88,7 @@ Point2 Game::posAt(int tilex, int tiley) {
 bool Game::tileXYAt(int screenx, int screeny, int& tilex, int& tiley) {
     // make relative to BoxMap
     screenx -= this->pos.x;
-    screeny -= this->pos.x;
+    screeny -= this->pos.y;
     
     if (screenx < 0 || screenx >= boxMap->width * BOX_TILE_WIDTH)
         return false;

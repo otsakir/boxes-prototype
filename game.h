@@ -2,6 +2,7 @@
 #define _GAME_H_
 
 #include "engine.h"
+#include <string.h>  // includes memset() for windows
 
 #define BOX_TILE_WIDTH 64.0
 #define BOX_TILE_HEIGHT 64.0
@@ -146,7 +147,7 @@ struct Animations {
     void tick();
     // return an available animator and mark it as non-finished
     Animator* getAnimatorSlot();
-    
+        
 };
 
 // high level game api

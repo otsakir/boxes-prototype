@@ -24,45 +24,28 @@ int main(int argc, char** args) {
 
     resources = new Resources(engine.renderer);
     resources->init();
-    resources->registerImage("../files/red.png", RED_BLOCK);
-    resources->registerImage("../files/blue.png", BLUE_BLOCK);
-    resources->registerImage("../files/orange.png", ORANGE_BLOCK);
-    resources->registerImage("../files/grey.png", GREY_BLOCK);
-    resources->registerImage("../files/brown.png", BROWN_BLOCK);
-    resources->registerImage("../files/green.png", GREEN_BLOCK);
+    resources->registerImage("./files/red.png", RED_BLOCK);
+    resources->registerImage("./files/blue.png", BLUE_BLOCK);
+    resources->registerImage("./files/orange.png", ORANGE_BLOCK);
+    resources->registerImage("./files/grey.png", GREY_BLOCK);
+    resources->registerImage("./files/brown.png", BROWN_BLOCK);
+    resources->registerImage("./files/green.png", GREEN_BLOCK);
     resources->done(); 
 
-    boxMap = new BoxMap(14, 10);
-    animations = new Animations(140);
+    boxMap = new BoxMap(14, 8);
+    animations = new Animations(224);
     boxFactory = new BoxFactory(resources);
     game = new Game(boxMap, boxFactory, animations);
+    game->pos.y = 64*2; // push some space at the top
 
-    
-    game->newBoxAt(9,8, BoxId::ORANGE_BOX);
-    game->newBoxAt(9,7, BoxId::ORANGE_BOX);
-    game->newBoxAt(9,6, BoxId::ORANGE_BOX);
-    
-    game->newBoxAt(8,8, BoxId::ORANGE_BOX);
-    game->newBoxAt(8,7, BoxId::ORANGE_BOX);
-    
-    game->newBoxAt(7,8, BoxId::ORANGE_BOX);
-    game->newBoxAt(7,7, BoxId::RED_BOX);
-    game->newBoxAt(7,6, BoxId::RED_BOX);
-    
-    game->newBoxAt(6,8, BoxId::RED_BOX);
-    game->newBoxAt(6,7, BoxId::RED_BOX);
-    game->newBoxAt(6,6, BoxId::RED_BOX);
-    
-    game->newBoxAt(9,9, BoxId::GREEN_BOX);
-    game->newBoxAt(8,9, BoxId::GREEN_BOX);
-    game->newBoxAt(7,9, BoxId::GREEN_BOX);
-    game->newBoxAt(6,9, BoxId::GREEN_BOX);
+    infoLog << "Press k to feed new columns manually\n";
 
     engine.mouseState.update(); // initialize mouse state
 
     lastFeedMillis = SDL_GetTicks();
 	SDL_Event ev;
 	bool running = true;
+    int coolingDown = 0;
 
     // main loop
 	while (running) {
@@ -111,11 +94,14 @@ int main(int argc, char** args) {
                     GameStatus gameStatus;
                     switch (ev.key.keysym.sym) {
                         case SDLK_k:
-                            gameStatus = game->newColumn();
-                            if (gameStatus == GameStatus::GAME_OVER) {
-                                infoLog << "GAME OVER\n";
-                            } 
-                        break;                            
+                            if (!coolingDown) {
+                                gameStatus = game->newColumn();
+                                coolingDown = 30; // prevent manually adding newColumn before 30 ticks
+                                if (gameStatus == GameStatus::GAME_OVER) {
+                                    infoLog << "GAME OVER\n";
+                                }
+                            }
+                        break;   
                     }
                 break;
 			}
@@ -127,7 +113,10 @@ int main(int argc, char** args) {
             lastFeedMillis = currentMillis;
             if (game->newColumn() == GameStatus::GAME_OVER) {
                 infoLog << "GAME OVER\n";
+                break;
             } 
+            coolingDown = 30;
+
         }
         
         // animate
@@ -145,6 +134,10 @@ int main(int argc, char** args) {
 
 		// Wait before next frame. Rough assumption of a 60Hz monitor, 2ms for rendereing a 14ms for waiting. 1sec/60 = 16.6ms
 		SDL_Delay(14);
+
+        // decrease cooldown counter. Cooldown allows newColumn to be added only after the previous has settled.
+        if (coolingDown > 0)
+            coolingDown--;
 	}
 
 
