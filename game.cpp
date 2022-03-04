@@ -6,6 +6,8 @@ extern LogStream warningLog;
 extern LogStream errorLog;
 extern LogStream infoLog;
 
+template class ListPool<Animator,int>; // instansiate class out of class template
+
 BoxSprite* BoxMap::OUT_OF_LIMITS = 0; // definition for static field of BoxMap class. Needed when linking.
 
 void BoxMap::renderBoxes(SDL_Renderer* renderer) {
@@ -326,43 +328,48 @@ GameStatus Game::condense() {
 bool Animator::tick() {
     if (steps <= 0) {
         warningLog << "trying to move a sprite that has already reached its destination. Maybe done-event missed ?\n";
-        // TODO - trigger animation-done event
-        finished = true;
+        return true;
     } else 
     if (steps == 1) {
         sprite->pos = toPos;
         steps --;
-        finished = true;
-        //infoLog << "animation finished\n";
+        return true;
     } else {
         float stepX = (toPos.x - sprite->pos.x)/(float)steps;
         float stepY = (toPos.y - sprite->pos.y)/(float)steps;
         sprite->pos.x += stepX;
         sprite->pos.y += stepY;
         steps --;
+        return false;
     }
-    return finished;
 }
 
 // go through animation slots and tick each one of them
 void Animations::tick() {
-    for (int i=0; i < count; i++) {
-        if ( ! animators[i].finished ) {
-            animators[i].tick();
-        }
+    AnimatorPool::Index it, nextit;
+
+    it = animators.iter();
+
+    Animator* animp;
+    while (it != -1) {
+        nextit = animators.nextp(it, animp);
+        if (animp->tick())  // returns true finished
+            animators.release(it); // current (it) can be released since we've already got next one
+        it = nextit;
     }
 }
 
 // return an available animator and mark it as non-finished
 Animator* Animations::getAnimatorSlot() {
-    for (int i=0; i < count; i++) {
-        if (animators[i].finished) {
-            //animators[i].finished = false;
-            return animators + i;
-        }
+    Animator* animatorp;
+    AnimatorPool::Index i = animators.getp(animatorp);
+    if (i == -1) {
+        errorLog << "no animator slots available" << "\n";
+        return 0;
     }
-    errorLog << "no animator slots available" << "\n";
-    return 0;
+
+    animatorp->removeIndex = i;
+    return animatorp;
 }
 
 

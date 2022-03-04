@@ -102,6 +102,9 @@ int main(int argc, char** args) {
                                 }
                             }
                         break;   
+                        case SDLK_c:
+                            infoLog << animations->animators.getUsedCount() << "\n";
+                        break;
                     }
                 break;
 			}
