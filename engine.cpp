@@ -195,3 +195,49 @@ void Sprite::render(SDL_Renderer* renderer) {
     renderable->render(pos.x, pos.y, renderer);
 }
 
+bool Animator::tick() {
+    if (steps <= 0) {
+        warningLog << "trying to move a sprite that has already reached its destination. Maybe done-event missed ?\n";
+        return true;
+    } else
+    if (steps == 1) {
+        sprite->pos = toPos;
+        steps --;
+        return true;
+    } else {
+        float stepX = (toPos.x - sprite->pos.x)/(float)steps;
+        float stepY = (toPos.y - sprite->pos.y)/(float)steps;
+        sprite->pos.x += stepX;
+        sprite->pos.y += stepY;
+        steps --;
+        return false;
+    }
+}
+
+// go through animation slots and tick each one of them
+void Animations::tick() {
+    AnimatorPool::Index it, nextit;
+
+    it = animators.iter();
+
+    Animator* animp;
+    while (it != -1) {
+        nextit = animators.nextp(it, animp);
+        if (animp->tick())  // returns true finished
+            animators.release(it); // current (it) can be released since we've already got next one
+        it = nextit;
+    }
+}
+
+// return an available animator and mark it as non-finished
+Animator* Animations::getAnimatorSlot() {
+    Animator* animatorp;
+    AnimatorPool::Index i = animators.getp(animatorp);
+    if (i == -1) {
+        errorLog << "no animator slots available" << "\n";
+        return 0;
+    }
+
+    animatorp->removeIndex = i;
+    return animatorp;
+}

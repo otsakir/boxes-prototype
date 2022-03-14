@@ -2,6 +2,7 @@
 #define _ENGINE_H_
 
 #include <SDL.h>
+#include "listpool.h"
 
 #define MAX_FILEPATH_SIZE 128
 
@@ -115,6 +116,51 @@ public:
     void render(SDL_Renderer* renderer);
     
 };
+
+struct Animator; // forward declaration
+typedef ListPool<Animator,int> AnimatorPool;
+
+// moving a sprite is done by an animator. Knows the final destinations (toPos). Set 'finished' to mark it done.
+struct Animator {
+    AnimatorPool::Index removeIndex;
+    Sprite* sprite;
+    Point2 toPos;
+    int steps; // how many steps/frames remaining
+    //bool finished;
+
+
+    Animator() : sprite(0), steps(0) {}
+
+    // Move sprite one step further. Returns true when done.
+    bool tick();
+
+    // initiate the animation
+    void set(Sprite* sprite, Point2 pos, int steps) {
+        this->sprite = sprite;
+        this->toPos = pos;
+        this->steps = steps; // TODO - make this parametric
+    }
+
+};
+
+// a (not efficient) pool for Animators
+struct Animations {
+
+    //Animator* animators;
+    //int count; // how many animators
+    AnimatorPool animators;
+
+    Animations(int count = 10) :animators(count) {}
+
+    ~Animations() {}
+
+    // go through animation slots and tick each one of them
+    void tick();
+    // return an available animator and mark it as non-finished
+    Animator* getAnimatorSlot();
+
+};
+
 
 
 
