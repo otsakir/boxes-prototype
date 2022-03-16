@@ -10,12 +10,12 @@ template class ListPool<Animator,int>; // instansiate class out of class templat
 
 BoxSprite* BoxMap::OUT_OF_LIMITS = 0; // definition for static field of BoxMap class. Needed when linking.
 
-void BoxMap::renderBoxes(SDL_Renderer* renderer) {
+void BoxMap::renderBoxes(Engine* engine) {
     for (int i=0; i < width; i++) {
         for (int j=0; j<height; j++) {
             Sprite* sprite = boxes[ width*j + i ];
             if (sprite) {
-                sprite->render(renderer);
+                sprite->render(engine);
             }
         }
     }
@@ -76,30 +76,33 @@ BoxSprite* BoxFactory::create(BoxId boxId) {
     return boxSprite;
 }
 
-// screen position from tile coordinates
+// world position from tile coordinates
 Point2 Game::posAt(int tilex, int tiley) {
     Point2 atpos;
     
-    atpos.x = this->pos.x + tilex * BOX_TILE_WIDTH;
-    atpos.y = this->pos.y + tiley * BOX_TILE_HEIGHT;
+    atpos.x = this->mapPos.x + tilex * BOX_TILE_WIDTH;
+    atpos.y = this->mapPos.y + tiley * BOX_TILE_HEIGHT;
     
     return atpos;
 }
 
 // return false if out of boxMap limits
 bool Game::tileXYAt(int screenx, int screeny, int& tilex, int& tiley) {
-    // make relative to BoxMap
-    screenx -= this->pos.x;
-    screeny -= this->pos.y;
+    // express in world coordinates
+    int x = screenx + engine->camera->worldPos.x;
+    int y = screeny + engine->camera->worldPos.y;
+    x -= mapPos.x; // make relative to boxmap
+    y -= mapPos.y;
+
     
-    if (screenx < 0 || screenx >= boxMap->width * BOX_TILE_WIDTH)
+    if (x < 0 || x >= boxMap->width * BOX_TILE_WIDTH)
         return false;
 
-    if (screeny < 0 || screeny >= boxMap->height * BOX_TILE_HEIGHT)
+    if (y < 0 || y >= boxMap->height * BOX_TILE_HEIGHT)
         return false;
         
-    tilex = screenx / BOX_TILE_WIDTH;
-    tiley = screeny / BOX_TILE_HEIGHT;
+    tilex = x / BOX_TILE_WIDTH;
+    tiley = y / BOX_TILE_HEIGHT;
     return true;
 }
 
@@ -131,7 +134,7 @@ MoveStatus Game::moveBlockLeft(int top, int left, int pastBottom, int pastRight)
                         destMapPos = srcMapPos;
                         srcMapPos = 0;
                         // set up animation
-                        Animator* animator = animations->getAnimatorSlot();
+                        Animator* animator = engine->animations->getAnimatorSlot();
                         Point2 targetPos = posAt(i-1,j);
                         animator->set(movedSprite, targetPos,30);
                     }
@@ -161,7 +164,7 @@ MoveStatus Game::moveBlockRight(int top, int left, int pastBottom, int pastRight
                         destMapPos = srcMapPos;
                         srcMapPos = 0;
                         // set up animation
-                        Animator* animator = animations->getAnimatorSlot();
+                        Animator* animator = engine->animations->getAnimatorSlot();
                         Point2 targetPos = posAt(i+1,j);
                         animator->set(movedSprite, targetPos,30);
                     }
@@ -191,7 +194,7 @@ MoveStatus Game::moveColumnRight(int i, int posCount) {
                 destMapPos = srcMapPos;
                 srcMapPos = 0;
                 // set up animation
-                Animator* animator = animations->getAnimatorSlot();
+                Animator* animator = engine->animations->getAnimatorSlot();
                 Point2 targetPos = posAt(i+posCount, j);
                 animator->set(movedSprite, targetPos,30);            
             }
@@ -208,7 +211,7 @@ GameStatus Game::newColumn() {
             if (boxSprite) {
                 boxSprite->setPos( posAt(boxMap->width, j) );
                 boxMap->putBox(boxMap->width-1, j, boxSprite);
-                Animator* animator = animations->getAnimatorSlot();
+                Animator* animator = engine->animations->getAnimatorSlot();
                 Point2 targetPos = posAt(boxMap->width-1,j);
                 animator->set(boxSprite, targetPos,30);
             }            
@@ -279,7 +282,7 @@ int Game::gravityEffect() {
                 boxMap->at(i,j+countEmpty) = boxMap->at(i,j);
                 boxMap->at(i,j) = 0;
                 movedCount ++;
-                Animator* animator = animations->getAnimatorSlot();
+                Animator* animator = engine->animations->getAnimatorSlot();
                 Point2 targetPos = posAt(i,j+countEmpty);
                 animator->set(boxSprite, targetPos,30);
 

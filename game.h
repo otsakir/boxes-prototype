@@ -86,7 +86,7 @@ struct BoxMap {
         }
     }
     
-    void renderBoxes(SDL_Renderer* renderer);
+    void renderBoxes(Engine* engine);
     void putBox(int posX, int posY, BoxSprite* boxSprite);    
     inline int getWidth() { return width; }
     inline int getHeight() { return height; }
@@ -115,14 +115,20 @@ private:
     bool columnEmpty(int i);
 
 public:
-    Point2 pos; // top-left corner
+    Point2 mapPos; // position of the box map in world coordinates
     Uint32 columnFeedPeriod = 5000; // in millisec
 
+    Engine* engine;
     BoxMap* boxMap;
     BoxFactory* boxFactory;
-    Animations* animations;
         
-    Game(BoxMap* boxMap, BoxFactory* boxFactory, Animations* animations) : boxMap(boxMap), boxFactory(boxFactory), animations(animations) {}
+    Game(BoxMap* boxMap, BoxFactory* boxFactory, Engine* engine) :
+        boxMap(boxMap),
+        boxFactory(boxFactory),
+        engine(engine)
+    {}
+
+    ~Game() {}
     
     // screen coordinates for box at tilex,tiley map position
     Point2 posAt(int tilex, int tiley);    

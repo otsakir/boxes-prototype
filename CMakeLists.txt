@@ -12,4 +12,6 @@ find_package(SDL2_image REQUIRED)
 include_directories(${SDL2_IMAGE_INCLUDE_DIRS})
 
 add_executable(sdl-game sdl-game.cpp game.cpp engine.cpp utils.cpp)
+#add_executable(sdl-game test-engine.cpp game.cpp engine.cpp utils.cpp)
 target_link_libraries(sdl-game ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARY})
+

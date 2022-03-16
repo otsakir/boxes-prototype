@@ -9,7 +9,8 @@ LogStream warningLog(std::cerr);
   
 int main(int argc, char** args) {
     
-    Engine engine;
+    Animations* animations = new Animations(224);
+    Engine engine(animations);
 
     if (!engine.initialize()) {
         return 1;
@@ -17,7 +18,6 @@ int main(int argc, char** args) {
     
     Resources* resources = 0;
     BoxMap* boxMap = 0;
-    Animations* animations = 0;
     BoxFactory* boxFactory = 0;
     Game* game = 0;
     Uint32 lastFeedMillis; // count milllis since last time we fed a column
@@ -33,10 +33,11 @@ int main(int argc, char** args) {
     resources->done(); 
 
     boxMap = new BoxMap(14, 8);
-    animations = new Animations(224);
     boxFactory = new BoxFactory(resources);
-    game = new Game(boxMap, boxFactory, animations);
-    game->pos.y = 64*2; // push some space at the top
+    game = new Game(boxMap, boxFactory, &engine);
+    game->mapPos.y = 64*2; // push some space at the top
+
+    engine.clipping->set(Point2(50,50), 800,500);
 
     infoLog << "Press k to feed new columns manually\n";
 
@@ -130,7 +131,7 @@ int main(int argc, char** args) {
         SDL_RenderClear(engine.renderer );
         
         // rendering
-        game->boxMap->renderBoxes(engine.renderer);
+        game->boxMap->renderBoxes(&engine);
 
         // page flipping (?)
         SDL_RenderPresent(engine.renderer);

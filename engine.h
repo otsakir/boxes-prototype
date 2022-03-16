@@ -13,6 +13,13 @@ struct Point2 {
     
     Point2() : x(0), y(0) {}
     Point2(float x, float y) : x(x), y(y) {}
+
+    Point2 operator-(const Point2& subtracted) const {
+        Point2 result;
+        result.x = x - subtracted.x;
+        result.y = y - subtracted.y;
+        return result;
+    }
 };
 
 
@@ -33,14 +40,98 @@ public:
 };
 
 
+// forward declarations
+struct Animations;
+
+class Camera {
+public:
+    Point2 worldPos;
+
+    Camera() : worldPos(Point2()) {} // place camera at world position (0,0)
+
+    void place(float worldx, float worldy) {
+        worldPos.x = worldx;
+        worldPos.y = worldy;
+    }
+};
+
+class Clipping {
+    Point2 pos; // screen coordinates
+    float width;
+    float height;
+public:
+    Clipping(Point2& pos, float width, float height) : pos(pos), width(width), height(height) {}
+    //Clipping(float width, float height) : width(width), height(height) {}
+
+    // pos in screen coordinates
+    void set(Point2 pos, float width, float height) {
+        this->pos = pos;
+        this->width = width;
+        this->height = height;
+    }
+
+    // true if totally clipped
+    bool clipped(const Point2& screenCoords, const float blitWidth, const float blitHeight, SDL_Rect& clippedRect) {
+        // check if out of the viewport alltogether
+        if (screenCoords.x+blitWidth <= this->pos.x || screenCoords.x >= this->pos.x + this->width)
+            return true;
+        if (screenCoords.y+blitHeight <= this->pos.y || screenCoords.y >= this->pos.y + this->height)
+            return true;
+
+        clippedRect.x = 0;
+        clippedRect.w = blitWidth;
+        if (screenCoords.x < this->pos.x) {
+            clippedRect.x += this->pos.x-screenCoords.x;
+            clippedRect.w -= clippedRect.x; //this->pos.x-screenCoords.x;
+        }
+        if (screenCoords.x+blitWidth > this->pos.x+this->width)
+            clippedRect.w -= screenCoords.x+blitWidth - (this->pos.x+this->width);
+
+        clippedRect.y = 0;
+        clippedRect.h = blitHeight;
+        if (screenCoords.y < this->pos.y) {
+            clippedRect.y = this->pos.y-screenCoords.y;
+            clippedRect.h -= clippedRect.y; //this->pos.y-screenCoords.y;
+        }
+        if (screenCoords.y+blitHeight > this->pos.y+this->height)
+            clippedRect.h -= screenCoords.y+blitHeight - (this->pos.y+this->height);
+
+        return false;
+    }
+
+};
+
+
 class Engine {
 public:
 	SDL_Window* window = 0;
     SDL_Renderer* renderer = 0;
     MouseState mouseState;
 
+    int windowWidth = 0; // of the window in pixels. Can change over time. TODO - keep track of the window size.
+    int windowHeight = 0;
+
+    Animations* animations; // not owned
+    Camera* camera; // owned
+    Clipping* clipping; // owned
+
+    Engine(Animations* animations) : animations(animations) {
+        camera = new Camera();
+        Point2 clippingPos;
+        clipping = new Clipping(clippingPos,0,0);
+    }
+
+    ~Engine() {
+        delete clipping;
+        delete camera;
+    }
+
     bool initialize();
     void close();
+
+    void worldToScreen(const Point2& worldCoords, Point2& destScreenCoords) {
+        destScreenCoords = worldCoords - camera->worldPos;
+    }
 };
 
 
@@ -81,7 +172,8 @@ public:
 class Renderable {
 private:
 public:
-	virtual void render(float x, float y, SDL_Renderer* renderer) = 0;
+    virtual void render(float x, float y, SDL_Rect& clippedSourceRect, Engine* engine) = 0;
+
 	float blitWidth = 10;
 	float blitHeight = 10;   
 };
@@ -97,7 +189,7 @@ public:
     RenderableBitmap(Texture* texture, int blitWidth = 0, int blitHeight = 0);
     ~RenderableBitmap();
 
-	virtual void render(float x, float y, SDL_Renderer* renderer);
+    virtual void render(float x, float y, SDL_Rect& clippedSourceRect, Engine* engine);
 
 };
 
@@ -113,7 +205,7 @@ public:
     void setPos(const Point2& pos) {
         this->pos = pos;
     }
-    void render(SDL_Renderer* renderer);
+    void render(Engine* engine);
     
 };
 
@@ -126,8 +218,6 @@ struct Animator {
     Sprite* sprite;
     Point2 toPos;
     int steps; // how many steps/frames remaining
-    //bool finished;
-
 
     Animator() : sprite(0), steps(0) {}
 
@@ -145,23 +235,16 @@ struct Animator {
 
 // a (not efficient) pool for Animators
 struct Animations {
-
-    //Animator* animators;
-    //int count; // how many animators
     AnimatorPool animators;
 
     Animations(int count = 10) :animators(count) {}
-
     ~Animations() {}
 
     // go through animation slots and tick each one of them
     void tick();
-    // return an available animator and mark it as non-finished
     Animator* getAnimatorSlot();
 
 };
-
-
 
 
 

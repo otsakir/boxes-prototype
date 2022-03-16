@@ -23,7 +23,7 @@ bool Engine::initialize() {
         SDL_Quit();
 		return false;
 	}
-    
+
     renderer = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED); // TODO fallback to software rendering, check SDL_RENDERER_PRESENTVSYNC
     if (!renderer) {
         errorLog << "Error creating renderer: " << SDL_GetError() << "\n";
@@ -31,6 +31,15 @@ bool Engine::initialize() {
         SDL_Quit();
         return false;
     }
+
+    int status = SDL_GetRendererOutputSize(renderer, &windowWidth, &windowHeight);
+    if (status) {
+        errorLog << "Error getting window size: " << SDL_GetError() << "\nMoving on...\n";
+    }
+    infoLog << "[engine] initial window size: " << windowWidth << "X" << windowHeight << "\n";
+
+    Point2 clippingPos;
+    clipping->set(clippingPos, windowWidth, windowHeight);
     
     return true;
 }
@@ -175,13 +184,14 @@ RenderableBitmap::~RenderableBitmap() {
         delete sourceRect;
 }
 
-void RenderableBitmap::render(float x, float y, SDL_Renderer* renderer) {
+void RenderableBitmap::render(float x, float y, SDL_Rect& clippedSourceRect, Engine* engine) {
     SDL_Rect destRect;
-    destRect.x = x;
-    destRect.y = y;
-    destRect.w = blitWidth;
-    destRect.h = blitHeight;
-    SDL_RenderCopy(renderer, sdlTexture, sourceRect, &destRect);
+    destRect.x = x + clippedSourceRect.x;
+    destRect.y = y + clippedSourceRect.y;
+    destRect.w = clippedSourceRect.w;
+    destRect.h = clippedSourceRect.h;
+    //SDL_RenderCopy(engine->renderer, sdlTexture, sourceRect, &destRect);
+    SDL_RenderCopy(engine->renderer, sdlTexture, &clippedSourceRect, &destRect);
 }
 
 
@@ -191,8 +201,14 @@ void Sprite::setPos(float x, float y) {
     pos.y = y;
 }
 
-void Sprite::render(SDL_Renderer* renderer) {
-    renderable->render(pos.x, pos.y, renderer);
+void Sprite::render(Engine* engine) {
+    Point2 screenCoords;
+    engine->worldToScreen(pos, screenCoords);
+    SDL_Rect clippedSourceRect; // rect inside the source image
+    if (engine->clipping->clipped(screenCoords, renderable->blitWidth, renderable->blitHeight, clippedSourceRect)) {
+        return; // lies outside the viewport
+    }
+    renderable->render(pos.x, pos.y, clippedSourceRect, engine);
 }
 
 bool Animator::tick() {
